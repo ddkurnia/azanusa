@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>AZANUSA — Offline</title>
+  <style>
+    body {
+      margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center;
+      font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+      background: linear-gradient(160deg, #0c3d36, #0e7a55); color: #fff;
+      text-align: center; padding: 24px;
+    }
+    .card { max-width: 420px; }
+    h1 { font-size: 24px; margin: 12px 0 6px; letter-spacing: 2px; }
+    p { font-size: 14px; line-height: 1.6; color: rgba(255,255,255,.85); margin: 8px 0; }
+    .badge { display: inline-block; background: #d9b45b; color: #0c3d36; font-weight: 800;
+             padding: 8px 16px; border-radius: 999px; font-size: 12px; letter-spacing: 1px; }
+    button { margin-top: 18px; background: #d9b45b; color: #0c3d36; border: 0; padding: 12px 24px;
+             border-radius: 14px; font-weight: 800; font-size: 14px; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="badge">AZANUSA</div>
+    <h1>Sedang Offline</h1>
+    <p>Jadwal salat terakhir yang tersimpan tetap tersedia di halaman utama begitu koneksi kembali.</p>
+    <p>Pengingat salat hanya dapat dikirim saat aplikasi terbuka — buka AZANUSA agar pengingat tetap berjalan.</p>
+    <button onclick="location.reload()">Coba Sambungkan Ulang</button>
+  </div>
+</body>
+</html>

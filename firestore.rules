@@ -1,0 +1,43 @@
+rules_version = '2';
+
+// Firebase Security Rules AZANUSA
+// Deploy: firebase deploy --only firestore:rules
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Cache jadwal salat: publik dibaca, hanya server (Admin SDK) yang menulis
+    match /prayerSchedules/{regionId_date} {
+      allow read: if true;
+      allow write: if false; // admin SDK mengabaikan rules (server-side)
+    }
+
+    // Konfigurasi aplikasi: publik dibaca, hanya server yang menulis
+    match /appConfig/{docId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // Data pengguna: hanya pemilik akun (bila auth diaktifkan di masa depan)
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+      match /{sub=**} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+    }
+
+    // Wilayah (opsional, admin-managed)
+    match /regions/{provinceId} {
+      allow read: if true;
+      allow write: if false;
+      match /regencies/{regencyId} {
+        allow read: if true;
+        allow write: if false;
+      }
+    }
+
+    // Blokir semuanya yang lain
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

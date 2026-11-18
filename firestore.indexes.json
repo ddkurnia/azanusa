@@ -1,0 +1,13 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "prayerSchedules",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "regionCode", "order": "ASCENDING" },
+        { "fieldPath": "date", "order": "DESCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}

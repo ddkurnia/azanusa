@@ -1,0 +1,53 @@
+{
+  "name": "AZANUSA — Jadwal Salat & Azan Otomatis",
+  "short_name": "AZANUSA",
+  "description": "Satu Indonesia, Satu Pengingat Waktu Salat. Jadwal salat lima waktu untuk 38 provinsi dan 514 kabupaten/kota di Indonesia dengan hitung mundur azan, WIB/WITA/WIT, kalender Hijriah, arah kiblat, doa, dan zikir.",
+  "id": "/",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f4f8f5",
+  "theme_color": "#0e7a55",
+  "lang": "id",
+  "dir": "ltr",
+  "categories": ["lifestyle", "utilities", "education"],
+  "icons": [
+    {
+      "src": "/icons/logo.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Jadwal Salat",
+      "url": "/#/jadwal",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Arah Kiblat",
+      "url": "/#/kiblat",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
+    }
+  ]
+}

@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0C3D36"/>
+      <stop offset="0.55" stop-color="#12503F"/>
+      <stop offset="1" stop-color="#0E7A55"/>
+    </linearGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#EFD9A0"/>
+      <stop offset="1" stop-color="#D9B45B"/>
+    </linearGradient>
+  </defs>
+  <rect x="0" y="0" width="512" height="512" rx="0" fill="url(#bg)"/>
+  <!-- pola geometris islami (bintang 8, samar) -->
+  <g transform="translate(0.0, 0.0) scale(0.86)">
+    <polygon points="256.00,94.00 307.28,138.20 374.79,143.21 379.80,210.72 424.00,262.00 379.80,313.28 374.79,380.79 307.28,385.80 256.00,430.00 204.72,385.80 137.21,380.79 132.20,313.28 88.00,262.00 132.20,210.72 137.21,143.21 204.72,138.20" fill="#FFFFFF" opacity="0.1"/>
+    <polygon points="256.00,142.00 292.74,173.31 340.85,177.15 344.69,225.26 376.00,262.00 344.69,298.74 340.85,346.85 292.74,350.69 256.00,382.00 219.26,350.69 171.15,346.85 167.31,298.74 136.00,262.00 167.31,225.26 171.15,177.15 219.26,173.31" fill="#FFFFFF" opacity="0.08"/>
+    <!-- kubah masjid -->
+    <path d="M256 128 C 196 176 168 232 168 296 L 344 296 C 344 232 316 176 256 128 Z" fill="url(#gold)"/>
+    <!-- pintu lengkung pada kubah -->
+    <path d="M256 214 C 232 240 220 266 220 296 L 292 296 C 292 266 280 240 256 214 Z" fill="#0C3D36" opacity="0.9"/>
+    <!-- dasar kubah -->
+    <rect x="140" y="296" width="232" height="26" rx="10" fill="url(#gold)"/>
+    <rect x="158" y="322" width="196" height="22" rx="9" fill="#D9B45B" opacity="0.85"/>
+    <!-- finial + bulan sabit -->
+    <rect x="250" y="96" width="12" height="40" rx="6" fill="url(#gold)"/>
+    <path d="M262 66 A 26 26 0 1 1 236 40 A 20 20 0 1 0 262 66 Z" fill="#EFD9A0" transform="translate(0,-2)"/>
+    <!-- bintang kecil di sisi bulan sabit -->
+    <polygon points="296.00,36.00 298.68,45.53 307.31,40.69 302.47,49.32 312.00,52.00 302.47,54.68 307.31,63.31 298.68,58.47 296.00,68.00 293.32,58.47 284.69,63.31 289.53,54.68 280.00,52.00 289.53,49.32 284.69,40.69 293.32,45.53" fill="#EFD9A0" opacity="0.95"/>
+  </g>
+</svg>
