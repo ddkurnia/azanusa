@@ -52,71 +52,72 @@
 
 :root {
   --radius: 0.75rem;
-  /* Palet AZANUSA: hijau zamrud, teal gelap, emas elegan, putih, abu lembut */
-  --background: #f4f8f5;
+  /* Palet AZANUSA (mockup resmi): Deep Emerald #003D38, Dark Teal #005B52,
+     Emerald #087C70, Gold #F5C542, Warm Gold #FFD95C, White, Soft Gray #F3F5F4 */
+  --background: #f3f5f4;
   --foreground: #16211b;
   --card: #ffffff;
   --card-foreground: #16211b;
   --popover: #ffffff;
   --popover-foreground: #16211b;
-  --primary: #0e7a55;
+  --primary: #087c70;
   --primary-foreground: #ffffff;
-  --secondary: #e8f1ec;
-  --secondary-foreground: #0c3d36;
-  --muted: #eef3f0;
-  --muted-foreground: #5c6b62;
-  --accent: #e8f1ec;
-  --accent-foreground: #0c3d36;
+  --secondary: #e6efec;
+  --secondary-foreground: #003d38;
+  --muted: #eef2f1;
+  --muted-foreground: #5c6b64;
+  --accent: #e6efec;
+  --accent-foreground: #003d38;
   --destructive: #b3402e;
-  --border: #e0e9e3;
-  --input: #dfe8e2;
-  --ring: #0e7a55;
-  --chart-1: #0e7a55;
-  --chart-2: #d9b45b;
-  --chart-3: #0c3d36;
-  --chart-4: #4f9d7f;
-  --chart-5: #8bc7ad;
+  --border: #e0e9e5;
+  --input: #dfe8e4;
+  --ring: #087c70;
+  --chart-1: #087c70;
+  --chart-2: #f5c542;
+  --chart-3: #003d38;
+  --chart-4: #005b52;
+  --chart-5: #7ccdbf;
   --sidebar: #ffffff;
   --sidebar-foreground: #16211b;
-  --sidebar-primary: #0e7a55;
+  --sidebar-primary: #087c70;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #e8f1ec;
-  --sidebar-accent-foreground: #0c3d36;
-  --sidebar-border: #e0e9e3;
-  --sidebar-ring: #0e7a55;
-  --gold: #c9a227;
-  --gold-soft: #efd9a0;
-  --teal-deep: #0c3d36;
-  --teal-mid: #12503f;
-  --emerald-az: #0e7a55;
-  --emerald-soft: #e4f2eb;
+  --sidebar-accent: #e6efec;
+  --sidebar-accent-foreground: #003d38;
+  --sidebar-border: #e0e9e5;
+  --sidebar-ring: #087c70;
+  --gold: #f5c542;
+  --gold-soft: #ffd95c;
+  --teal-deep: #003d38;
+  --teal-mid: #005b52;
+  --emerald-az: #087c70;
+  --emerald-soft: #e4f2ec;
 }
 
 .dark {
-  --background: #0a1410;
+  --background: #01241f;
   --foreground: #e6efe9;
-  --card: #101d17;
+  --card: #073a34;
   --card-foreground: #e6efe9;
-  --popover: #101d17;
+  --popover: #073a34;
   --popover-foreground: #e6efe9;
-  --primary: #34b184;
-  --primary-foreground: #08120e;
-  --secondary: #14251d;
+  --primary: #2aa98f;
+  --primary-foreground: #01241f;
+  --secondary: #0a443d;
   --secondary-foreground: #cfe3d7;
-  --muted: #14251d;
+  --muted: #0a443d;
   --muted-foreground: #9fb3a7;
-  --accent: #14251d;
+  --accent: #0a443d;
   --accent-foreground: #cfe3d7;
   --destructive: #e07a63;
-  --border: #1d3027;
-  --input: #1d3027;
-  --ring: #34b184;
-  --gold: #d9b45b;
-  --gold-soft: #efd9a0;
-  --teal-deep: #0a1f19;
-  --teal-mid: #123229;
-  --emerald-az: #34b184;
-  --emerald-soft: #14251d;
+  --border: #10493f;
+  --input: #10493f;
+  --ring: #2aa98f;
+  --gold: #f5c542;
+  --gold-soft: #ffd95c;
+  --teal-deep: #01241f;
+  --teal-mid: #005b52;
+  --emerald-az: #087c70;
+  --emerald-soft: #0a443d;
 }
 
 @layer base {
@@ -193,4 +194,28 @@
   animation: pulse-ring 2.2s ease-out infinite;
 }
 
-/* AZANUSA build refresh */
+/* ===== Panel gelap identitas dashboard AZANUSA (mockup resmi) ===== */
+
+/* Kartu teal gelap dengan border tipis hijau muda */
+.panel-teal {
+  background: linear-gradient(168deg, #0b5148 0%, #06403a 100%);
+  border: 1px solid rgba(124, 205, 191, 0.3);
+}
+
+/* Kartu teal paling gelap (jadwal salat) */
+.panel-teal-deep {
+  background: linear-gradient(168deg, #0a4a43 0%, #053a34 100%);
+  border: 1px solid rgba(124, 205, 191, 0.26);
+}
+
+/* Highlight emas baris salat berikutnya */
+.panel-gold {
+  background: linear-gradient(180deg, #ffd95c 0%, #f5c542 100%);
+}
+
+/* Warna teks gelap di atas emas */
+.on-gold {
+  color: #01322d;
+}
+
+/* ===== Akhir panel dashboard AZANUSA ===== */

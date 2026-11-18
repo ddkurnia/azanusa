@@ -4,7 +4,7 @@ import { useMemo } from "react";
 import { ChevronLeft, ChevronRight, CalendarDays } from "lucide-react";
 import { useSchedule } from "@/hooks/use-schedule";
 import { useNow } from "@/hooks/use-now";
-import { nextPrayerOf, formatCountdown } from "./NextPrayerHero";
+import { nextPrayerOf, formatCountdown } from "@/lib/prayer/display";
 import { PrayerTimesList } from "./PrayerTimesList";
 import { SourceBadge } from "./SourceBadge";
 import { addDaysISO, longDateInTz } from "@/lib/timezone";

@@ -4,7 +4,7 @@
  * - Runtime: cache-first untuk aset statis; network-first untuk /api/prayer-times
  *   (fallback cache terakhir agar jadwal tetap tampil offline); navigasi → offline.html
  */
-const VERSION = "azanusa-v1.0.0";
+const VERSION = "azanusa-v1.1.0";
 const PRECACHE = [
   "/",
   "/manifest.webmanifest",
@@ -14,6 +14,10 @@ const PRECACHE = [
   "/icons/maskable-512.png",
   "/icons/favicon-48.png",
   "/icons/apple-touch-icon.png",
+  "/assets/azanusa-logo.png",
+  "/assets/azanusa-logo-mark.png",
+  "/assets/azanusa-mosque-bg.png",
+  "/assets/azanusa-app-icon.png",
   "/audio/azan.mp3",
   "/offline.html",
 ];
@@ -42,8 +46,8 @@ self.addEventListener("fetch", (event) => {
 
   if (req.method !== "GET" || url.origin !== self.location.origin) return;
 
-  // API jadwal: network-first dengan fallback cache terakhir
-  if (url.pathname.startsWith("/api/prayer-times")) {
+  // API jadwal & Al-Qur'an: network-first dengan fallback cache terakhir
+  if (url.pathname.startsWith("/api/prayer-times") || url.pathname.startsWith("/api/quran")) {
     event.respondWith(
       fetch(req)
         .then((res) => {
@@ -62,6 +66,7 @@ self.addEventListener("fetch", (event) => {
   if (
     url.pathname.startsWith("/icons/") ||
     url.pathname.startsWith("/audio/") ||
+    url.pathname.startsWith("/assets/") ||
     url.pathname === "/manifest.webmanifest" ||
     /\.(css|js|woff2|png|svg|jpg|webp)$/.test(url.pathname)
   ) {

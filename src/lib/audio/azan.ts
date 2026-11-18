@@ -19,6 +19,8 @@ class AzanPlayer {
   private ctx: AudioContext | null = null;
   private unlocked = false;
   volume = 0.8;
+  /** Callback opsional saat azan selesai diputar (untuk sinkron UI) */
+  onEnded: (() => void) | null = null;
 
   private ensureAudio(): HTMLAudioElement | null {
     if (typeof window === "undefined") return null;
@@ -27,6 +29,7 @@ class AzanPlayer {
       this.audio.preload = "auto";
       this.audio.addEventListener("ended", () => {
         this.audio?.pause();
+        this.onEnded?.();
       });
     }
     this.audio.volume = this.volume;

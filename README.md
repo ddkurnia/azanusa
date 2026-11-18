@@ -7,18 +7,23 @@ seluruh Indonesia: **38 provinsi, 514 kabupaten/kota**, zona waktu **WIB, WITA, 
 Dibangun sebagai PWA (Progressive Web App) yang dapat dipasang di Android dan berjalan
 di browser desktop/mobile.
 
+Antarmuka dashboard direplikasi dari **mockup resmi AZANUSA** (aset di `public/assets/`):
+header teal gelap dengan logo emas, hero masjid senja, kartu hitung mundur azan,
+jadwal lima salat dengan highlight emas, menu akses cepat, dan navigasi bawah lima menu.
+
 ## Fitur Utama
 
 | Fitur | Status | Keterangan |
 | --- | --- | --- |
-| Dashboard beranda | ✅ | Logo, lokasi, tanggal Masehi + Hijriah, jam wilayah, hitung mundur azan berjalan |
-| Jadwal salat 5 waktu | ✅ | Subuh, Zuhur, Asar, Magrib, Isya + info Imsak/Terbit; penanda waktu berikutnya |
+| Splash pembuka | ✅ | Tampil sekali per perangkat: background masjid, logo, 4 fitur unggulan, tombol "Mulai Sekarang" |
+| Dashboard beranda | ✅ | Lokasi, tanggal Masehi + Hijriah, hero masjid, hitung mundur azan berjalan |
+| Jadwal salat 5 waktu | ✅ | Subuh, Zuhur, Asar, Magrib, Isya; highlight emas untuk salat berikutnya, centang hijau untuk yang sudah lewat |
+| Putar azan | ✅ | Tombol bulat play/pause nyata (audio azan CC BY-SA 4.0), ikut kebijakan autoplay browser |
 | Pencarian wilayah | ✅ | 38 provinsi, 514 kab/kota (kode resmi Kemendagri Kepmendagri 300.2.2-2430/2025) |
 | Deteksi lokasi | ✅ | Geolocation API + pencarian manual; wilayah terdekat otomatis |
 | Zona waktu wilayah | ✅ | WIB (Asia/Jakarta), WITA (Asia/Makassar), WIT (Asia/Jayapura) — mengikuti wilayah, bukan perangkat |
 | Sumber data modular | ✅ | Rantai penyedia: SIHAT resmi → cermin publik (opsional, dilabeli) → perhitungan astronomis terkalibrasi |
-| Audio azan | ✅ | Azan lengkap CC BY-SA 4.0 + nada pengingat orisinal; volume, pratinjau, aktif per salat |
-| Notifikasi | ✅ | Notification API + Service Worker; mode azan/singkat/senyap/nonaktif + pengingat sebelum waktu salat |
+| **Al-Qur'an** | ✅ | 114 surat, teks Arab/latin/terjemahan Indonesia (equran.id), pencarian, cache offline per perangkat |
 | Kalender Hijriah | ✅ | Standar Umm al-Qura, grid bulanan dengan tanggal Masehi |
 | Kompas kiblat | ✅ | Azimut bulatan besar ke Ka'bah + kompas sensor (opsional) |
 | Doa harian | ✅ | 12 doa pilihan (Arab, latin, arti) |
@@ -49,6 +54,21 @@ selalu tampil di beranda:
   divalidasi otomatis (jangkauan Indonesia + deteksi outlier per provinsi).
 - Generator: `scripts/gen-regions.py` → `src/data/regions.json`.
 - Kecamatan: belum tersedia pada versi ini (tercantum di rencana kerja lanjutan).
+
+## Aset Visual Resmi
+
+| Berkas | Sumber | Pemakaian |
+| --- | --- | --- |
+| `public/assets/azanusa-logo.png` | Logo resmi pengguna (utuh, tidak diubah) | Kartu "Tentang" (Lainnya) |
+| `public/assets/azanusa-logo-mark.png` | Ekstraksi simbol emas dari logo resmi (transparansi asli) | Header, splash, kartu selamat datang |
+| `public/assets/azanusa-mosque-bg.png` | Background masjid resmi pengguna | Splash + hero dashboard |
+| `public/assets/azanusa-app-icon.png` | Ikon aplikasi resmi pengguna | Generator ikon PWA (192/512/maskable/apple/favicon) |
+| `public/assets/azanusa-reference-ui.png` | Mockup referensi UI | Acuan desain |
+
+Catatan: pada header/splash, kata "AZANUSA" dirender sebagai teks (AZAN putih + USA emas)
+di samping simbol resmi — sesuai komposisi mockup, karena subtitle hitam pada berkas logo
+asli tidak terbaca di latar teal gelap. Logo asli utuh tetap digunakan apa adanya pada
+kartu putih "Tentang".
 
 ## Teknologi
 

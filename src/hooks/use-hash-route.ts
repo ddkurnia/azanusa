@@ -5,23 +5,27 @@ import { useCallback, useSyncExternalStore } from "react";
 export type ViewKey =
   | "beranda"
   | "jadwal"
+  | "alquran"
   | "kalender"
   | "kiblat"
   | "doa"
   | "zikir"
   | "masjid"
   | "profil"
+  | "lainnya"
   | "pengaturan";
 
 const VALID_VIEWS: ViewKey[] = [
   "beranda",
   "jadwal",
+  "alquran",
   "kalender",
   "kiblat",
   "doa",
   "zikir",
   "masjid",
   "profil",
+  "lainnya",
   "pengaturan",
 ];
 
