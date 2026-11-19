@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import {
   BellRing, BellOff, Volume2, Database, Download, Info,
   ShieldAlert, Smartphone, CheckCircle2, AlertTriangle, CloudUpload,
@@ -17,7 +17,7 @@ import {
   isPushConfigured,
 } from "@/lib/notifications/push";
 import { PRAYER_KEYS, PRAYER_NAMES } from "@/types";
-import type { NotifyMode, ProviderStatus } from "@/types";
+import type { NotifyMode } from "@/types";
 import { EmptyState } from "@/components/islamic/CalendarView";
 
 const MODE_OPTIONS: { value: NotifyMode; label: string }[] = [
@@ -34,18 +34,10 @@ export function SettingsView() {
   } = useAppStore();
   const { permission, requestPermission } = useNotifications();
   const { available, installed, promptInstall } = useInstallPrompt();
-  const [providers, setProviders] = useState<ProviderStatus | null>(null);
   const [unlocking, setUnlocking] = useState(false);
   const [pushBusy, setPushBusy] = useState(false);
   const [pushMsg, setPushMsg] = useState<{ tone: "ok" | "err"; text: string } | null>(null);
   const pushConfigured = isPushConfigured();
-
-  useEffect(() => {
-    fetch("/api/config")
-      .then((r) => r.json())
-      .then((j) => j.ok && setProviders(j.providers))
-      .catch(() => setProviders(null));
-  }, []);
 
   if (!location) {
     return (
@@ -153,7 +145,7 @@ export function SettingsView() {
             <div className="flex items-start gap-2">
               <CloudUpload className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
               <div>
-                <p className="text-sm font-bold text-teal-deep">Push notifikasi (Firebase)</p>
+                <p className="text-sm font-bold text-teal-deep">Push notifikasi</p>
                 <p className="text-[11px] leading-snug text-muted-foreground">
                   Pengingat tetap terkirim walau aplikasi sudah ditutup
                 </p>
@@ -163,12 +155,12 @@ export function SettingsView() {
               checked={pushEnabled}
               onCheckedChange={handlePushToggle}
               disabled={pushBusy || !notifSupported}
-              aria-label="Aktifkan push notifikasi Firebase"
+              aria-label="Aktifkan push notifikasi"
             />
           </div>
           {!pushConfigured && (
             <p className="mt-2 text-[11px] leading-relaxed text-amber-800">
-              Konfigurasi Firebase belum terisi di server — push belum tersedia.
+              Layanan push belum aktif — coba beberapa saat lagi.
             </p>
           )}
           {pushMsg && (
@@ -244,7 +236,7 @@ export function SettingsView() {
           <span>
             <strong>Cara kerja pengingat:</strong> saat aplikasi terbuka, AZANUSA menampilkan
             pengingat langsung dari perangkat (dengan azan Makkah bila dipilih). Dengan
-            <strong> push Firebase</strong> aktif, pengingat tetap terkirim saat aplikasi ditutup —
+            <strong>push</strong> aktif, pengingat tetap terkirim saat aplikasi ditutup —
             selama server pengirim AZANUSA berjalan dan peramban mendukung web push
             (Android Chrome, atau PWA terpasang di iOS 16.4+).
           </span>
@@ -321,9 +313,9 @@ export function SettingsView() {
         </header>
         <div className="mt-3 space-y-2">
           {[
-            { v: "auto", t: "Otomatis (paling akurat tersedia)", d: "SIHAT resmi → jadwal Kemenag (cermin myQuran → Aladhan) → hisab astronomis" },
-            { v: "kemenag", t: "SIHAT Kemenag (resmi)", d: providers?.kemenagSihatConfigured ? "Token tersedia" : "Menunggu konfigurasi token — status: tidak aktif" },
-            { v: "mirror", t: "Cermin publik (TIDAK RESMI)", d: providers?.mirrorEnabled ? "Aktif bawaan: jadwal Kemenag via myQuran (cadangan: Aladhan metode KEMENAG)" : "Dimatikan di server (PRAYER_ENABLE_MIRROR=false)" },
+            { v: "auto", t: "Otomatis (paling akurat tersedia)", d: "Otomatis memilih sumber jadwal paling akurat yang tersedia" },
+            { v: "kemenag", t: "SIHAT Kemenag (resmi)", d: "Jadwal resmi langsung dari API SIHAT Kemenag RI" },
+            { v: "mirror", t: "Cermin publik (TIDAK RESMI)", d: "Jadwal Kemenag melalui layanan cermin publik" },
             { v: "calc", t: "Perhitungan astronomis", d: "Kriteria Kemenag, dikalibrasi (deviasi 0-4 menit)" },
           ].map((o) => (
             <label
@@ -384,8 +376,6 @@ export function SettingsView() {
       <p className="flex items-start gap-1.5 px-1 text-[10px] leading-relaxed text-muted-foreground">
         <Info className="mt-0.5 h-3 w-3 shrink-0" />
         Pengaturan disimpan di perangkat (localStorage) dan tidak memerlukan akun.
-        Sinkronisasi akun tersedia bila Firebase Authentication diaktifkan pada tahap
-        pengembangan berikutnya.
       </p>
     </div>
   );

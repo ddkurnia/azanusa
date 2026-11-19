@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Image from "next/image";
-import { MapPin, Database, Server, Github, ExternalLink, Download, Clock } from "lucide-react";
+import { MapPin, Database, Download, Clock } from "lucide-react";
 import { useAppStore } from "@/lib/store";
 import { useInstallPrompt } from "@/hooks/use-install-prompt";
 import { useSchedule } from "@/hooks/use-schedule";
@@ -63,70 +63,17 @@ export function ProfileView() {
         </dl>
       </section>
 
-      <section className="rounded-2xl border border-border bg-card p-4 shadow-sm">
-        <h2 className="text-sm font-bold text-teal-deep">Status Layanan</h2>
-        <ul className="mt-3 space-y-2 text-xs">
-          <li className="flex items-center justify-between">
-            <span className="flex items-center gap-1.5 text-muted-foreground"><Server className="h-4 w-4" />API SIHAT Kemenag</span>
-            <span className={`font-semibold ${config?.providers.kemenagSihatConfigured ? "text-primary" : "text-muted-foreground"}`}>
-              {config?.providers.kemenagSihatConfigured ? "Aktif" : "Menunggu konfigurasi"}
-            </span>
-          </li>
-          <li className="flex items-center justify-between">
-            <span className="flex items-center gap-1.5 text-muted-foreground"><Server className="h-4 w-4" />Firebase</span>
-            <span className={`font-semibold ${config?.providers.firebaseConfigured ? "text-primary" : "text-muted-foreground"}`}>
-              {config?.providers.firebaseConfigured ? "Terhubung" : "Belum dikonfigurasi"}
-            </span>
-          </li>
-          <li className="flex items-center justify-between">
-            <span className="flex items-center gap-1.5 text-muted-foreground"><Server className="h-4 w-4" />PWA</span>
-            <span className={`font-semibold ${installed ? "text-primary" : "text-muted-foreground"}`}>
-              {installed ? "Terpasang" : "Peramban"}
-            </span>
-          </li>
-        </ul>
-        {!installed && available && (
+      {!installed && available && (
+        <section className="rounded-2xl border border-border bg-card p-4 shadow-sm">
           <button
             onClick={promptInstall}
-            className="mt-3 inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-primary-foreground"
+            className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-primary-foreground"
           >
             <Download className="h-4 w-4" />
             Pasang aplikasi
           </button>
-        )}
-      </section>
-
-      <section className="rounded-2xl border border-border bg-card p-4 shadow-sm">
-        <h2 className="text-sm font-bold text-teal-deep">Tentang &amp; Sumber Data</h2>
-        <ul className="mt-3 space-y-2 text-[11px] leading-relaxed text-muted-foreground">
-          <li>
-            <a className="flex items-center gap-1.5 font-semibold text-primary" href="https://sihat.kemenag.go.id/layanan" target="_blank" rel="noopener noreferrer">
-              SIHAT — Sistem Informasi Jadwal Salat Kemenag RI <ExternalLink className="h-3 w-3" />
-            </a>
-            <span className="block pl-5">
-              Prioritas utama AZANUSA. Akses API memerlukan permohonan resmi; panduan
-              konfigurasi tersedia di dokumentasi proyek.
-            </span>
-          </li>
-          <li>
-            <span className="block">
-              Perhitungan astronomis: kriteria hisab Kemenag (Subuh 20°, Isya 18°, Asar
-              Syafi&apos;i) dikalibrasi terhadap tabel SIHAT — deviasi umum 0–4 menit.
-            </span>
-          </li>
-          <li>
-            <span className="block">
-              Data wilayah: Kemendagri (Kepmendagri 300.2.2-2430/2025) + koordinat
-              Wikidata/OpenStreetMap. Audio azan: CC BY-SA 4.0 (atribusi di halaman Pengaturan).
-            </span>
-          </li>
-          <li className="flex items-center gap-1.5">
-            <Github className="h-3 w-3" />
-            Kode sumber AZANUSA: repositori GitHub
-            <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-[10px]">azanusa</code>
-          </li>
-        </ul>
-      </section>
+        </section>
+      )}
 
       <p className="px-1 text-center text-[10px] leading-relaxed text-muted-foreground">
         AZANUSA dibangun sebagai produk digital untuk seluruh masyarakat Indonesia.

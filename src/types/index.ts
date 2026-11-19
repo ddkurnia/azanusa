@@ -85,14 +85,6 @@ export interface AppSettings {
   audioUnlocked: boolean;
 }
 
-export interface ProviderStatus {
-  kemenagSihatConfigured: boolean;
-  mirrorEnabled: boolean;
-  firebaseConfigured: boolean;
-  defaultSource: ScheduleSource;
-}
-
 export interface ApiConfigResponse {
   appVersion: string;
-  providers: ProviderStatus;
 }
