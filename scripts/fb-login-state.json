@@ -1,0 +1,8 @@
+{
+  "session_id": "304fcf19-014e-4f74-9f70-e0a26f7b3cba",
+  "session_prefix": "304FC",
+  "code_verifier": "53465a2bf9d5cfaf4da1f9e4983b48fbedbd4374631495a4bebe44fdc653b573",
+  "code_challenge": "JCXpNpNHotc_cqe-1sXT2ZzBgW1VHgRdxvUesO5jtIs",
+  "attest": "Et0EYPsp6q-IBH0vZUZHRL2YcRCcKIpmbNbTzceWrdw",
+  "login_url": "https://auth.firebase.tools/login?code_challenge=JCXpNpNHotc_cqe-1sXT2ZzBgW1VHgRdxvUesO5jtIs&session=304fcf19-014e-4f74-9f70-e0a26f7b3cba&attest=Et0EYPsp6q-IBH0vZUZHRL2YcRCcKIpmbNbTzceWrdw"
+}
