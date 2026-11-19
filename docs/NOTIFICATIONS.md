@@ -111,7 +111,12 @@ Kemudian pasang cron eksternal (pilih salah satu):
 2. Konfigurasi web client (`NEXT_PUBLIC_FIREBASE_*`) punya fallback bawaan di
    `src/lib/firebase/client.ts` — push aktif bahkan tanpa env itu; env tetap
    dipakai bila diisi.
-3. Aktifkan cron pengirim (GitHub Actions di atas, atau cron-job.org).
+3. Aktifkan cron pengirim (GitHub Actions di atas, atau cron-job.org) —
+   **opsional namun disarankan**: AZANUSA kini punya **tick mandiri**
+   (`/api/notifications/tick` + beacon di `PushForeground`) — setiap aplikasi
+   yang dibuka pengguna mana pun memicu dispatcher (dibatasi server 1×/menit,
+   dedup per hari), sehingga pengingat tetap terkirim tanpa cron. Cron
+   eksternal menutup celah saat tidak ada pengguna yang membuka aplikasi.
 4. Verifikasi: buka aplikasi di ponsel → Pengaturan → nyalakan **Push
    notifikasi** → "Push aktif — perangkat terdaftar di cloud AZANUSA." →
    cek endpoint dispatch menjawab `checked >= 1`.

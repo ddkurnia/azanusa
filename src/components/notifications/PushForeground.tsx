@@ -66,5 +66,21 @@ export function PushForeground() {
     return () => clearTimeout(t);
   }, [pushEnabled, location, notifications]);
 
+  // Tick mandiri: setiap aplikasi yang terbuka memicu dispatcher server
+  // (dibatasi server 1×/menit) sehingga pengingat terkirim ke semua perangkat
+  // — termasuk aplikasi yang sedang tertutup — tanpa cron eksternal.
+  useEffect(() => {
+    let interval: ReturnType<typeof setInterval> | null = null;
+    const tick = () => {
+      fetch("/api/notifications/tick", { keepalive: true }).catch(() => {});
+    };
+    const t0 = setTimeout(tick, 4000);
+    interval = setInterval(tick, 15 * 60_000);
+    return () => {
+      clearTimeout(t0);
+      if (interval) clearInterval(interval);
+    };
+  }, []);
+
   return null;
 }
