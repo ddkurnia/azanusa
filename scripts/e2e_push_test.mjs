@@ -97,8 +97,14 @@ try {
   for (let i = 0; i < 30; i++) { if (await evalJs("document.readyState")) break; await sleep(300); }
   await sleep(1500);
 
-  // ---------- set lokasi + reload ----------
-  await evalJs(`localStorage.setItem('azanusa-settings', JSON.stringify({state:{location:{code:'3171',name:'Jakarta Pusat',prov:'DKI Jakarta',lat:-6.1823,lng:106.8296,tz:"Asia/Jakarta"},pushEnabled:false},version:1}))`);
+  // ---------- set lokasi + preferensi bertanda + reload ----------
+  // beforeMinutes 13 = penanda unik dokumen milik sesi uji ini di Firestore,
+  // agar FCM uji dikirim ke token browser uji (bukan perangkat pengguna nyata)
+  const marker = 13;
+  const markedPrefs = JSON.stringify(
+    Object.fromEntries(["subuh", "zuhur", "asar", "magrib", "isya"].map((k) => [k, { mode: "azan", beforeMinutes: marker }]))
+  );
+  await evalJs(`localStorage.setItem('azanusa-settings', JSON.stringify({state:{location:{code:'3171',name:'Jakarta Pusat',prov:'DKI Jakarta',lat:-6.1823,lng:106.8296,tz:"Asia/Jakarta"},pushEnabled:false,notifications:${markedPrefs}},version:1}))`);
   await send("Page.navigate", { url: BASE + "/" });
   await sleep(2500);
   log("halaman dimuat ulang dgn lokasi 3171");
@@ -155,14 +161,21 @@ try {
     projectId: process.env.FIREBASE_PROJECT_ID,
   }, "e2e");
   const db = getFirestore(app);
-  const snap = await db.collection("users").where("pushEnabled", "==", true).limit(5).get();
+  const snap = await db.collection("users").where("pushEnabled", "==", true).limit(10).get();
   log("users pushEnabled:", snap.size, "dokumen");
-  let token = null, uid = null;
+  let token = null, uid = null, isOwn = false;
   snap.forEach((d) => {
     const v = d.data();
-    uid = d.id; token = v.pushToken;
-    log(` - uid=${d.id.slice(0, 8)}… token=${String(v.pushToken).slice(0, 14)}… (len ${String(v.pushToken).length}) loc=${v.location?.code} ${v.location?.name}`);
+    log(` - uid=${d.id.slice(0, 8)}… token=${String(v.pushToken).slice(0, 14)}… (len ${String(v.pushToken).length}) loc=${v.location?.code} ${v.location?.name} marker=${v.notifications?.zuhur?.beforeMinutes}`);
+    // pilih dokumen sesi uji ini (penanda beforeMinutes 13); fallback: terakhir
+    if (v.notifications?.zuhur?.beforeMinutes === 13) { token = v.pushToken; uid = d.id; isOwn = true; }
   });
+  if (!token) {
+    snap.forEach((d) => { uid = d.id; token = d.data().pushToken; });
+    log("penanda tidak ketemu — pakai dokumen terakhir (fallback)");
+  } else {
+    log("dokumen sesi uji teridentifikasi:", uid.slice(0, 8) + "…");
+  }
 
   if (token) {
     // ---------- kirim push FCM ASLI ----------
@@ -201,6 +214,12 @@ try {
   const disp = await fetch(`${BASE}/api/notifications/dispatch?secret=${process.env.CRON_SECRET}`);
   const djs = await disp.json().catch(() => ({}));
   log("dispatch cron:", disp.status, JSON.stringify(djs).slice(0, 220));
+
+  // ---------- bersih-bersih: hapus dokumen sesi uji (hanya milik penanda 13) ----------
+  if (token && uid && isOwn) {
+    await db.collection("users").doc(uid).delete().catch(() => {});
+    log("dokumen sesi uji dihapus dari Firestore:", uid.slice(0, 8) + "…");
+  }
 } catch (e) {
   console.log("[e2e] GAGAL:", e.message);
   console.log("RESULT=E2E_ERROR");

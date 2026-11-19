@@ -60,7 +60,10 @@ export async function checkAndNotify(
   if (!("Notification" in window)) return { fired };
   if (Notification.permission !== "granted") return { fired };
 
-  const reg = await navigator.serviceWorker?.getRegistration?.();
+  // Tunggu Service Worker aktif maks 3 dtk — tick pertama setelah muat sering
+  // datang sebelum registrasi SW selesai; tanpa ini notifikasi jatuh ke
+  // fallback `new Notification` yang bisa gagal di beberapa peramban (iOS).
+  const reg = await waitForServiceWorker();
   const state = loadFired();
 
   const processSchedule = async (sched: PrayerSchedule) => {
@@ -75,14 +78,22 @@ export async function checkAndNotify(
         const beforeKey = todayKey(sched.date, t.key, "before");
         const beforeTime = timeMs - setting.beforeMinutes * 60_000;
         if (!state[beforeKey] && now.getTime() >= beforeTime && now.getTime() < timeMs) {
-          await show(reg, {
-            title: `Pengingat ${t.display} — Salat ${cap(t.key)} ${setting.beforeMinutes} menit lagi`,
+          // Sisa menit riil (bila reminder jalan telat, teks tetap akurat)
+          const remaining = Math.max(1, Math.ceil((timeMs - now.getTime()) / 60_000));
+          const shown = await show(reg, {
+            title: `Pengingat ${t.display} — Salat ${cap(t.key)} ${remaining} menit lagi`,
             body: `Wilayah: ${sched.region.name}, ${sched.region.prov}`,
-            tag: beforeKey,
+            // Tag seragam dgn push server (azanusa-*) agar saling menggantikan,
+            // tidak menumpuk dua notifikasi untuk pengingat yang sama
+            tag: `azanusa-${beforeKey}`,
             silent: setting.mode === "silent",
           });
-          state[beforeKey] = true;
-          fired.push(beforeKey);
+          // Tandai hanya bila notifikasi benar-benar tampil — bila gagal,
+          // tick berikutnya (15 dtk) mengulang dalam jendela yang sama.
+          if (shown) {
+            state[beforeKey] = true;
+            fired.push(beforeKey);
+          }
         }
       }
 
@@ -90,19 +101,30 @@ export async function checkAndNotify(
       const mainKey = todayKey(sched.date, t.key, "main");
       if (!state[mainKey] && now.getTime() >= timeMs && now.getTime() < timeMs + 5 * 60_000) {
         const silent = setting.mode === "silent";
-        await show(reg, {
+        // Azan/nada: cukup sekali per jendela walau notifikasi perlu diulang,
+        // agar tidak dobel saat show gagal lalu tick berikutnya mengulang.
+        const audioKey = todayKey(sched.date, t.key, "audio");
+        if (!state[audioKey]) {
+          // Selalu dicoba — play() sendiri yang menolak bila autoplay policy
+          // belum terpenuhi (gate isUnlocked() lama membuat azan diam).
+          if (setting.mode === "azan") {
+            void azanPlayer.playAzan();
+          } else if (setting.mode === "short") {
+            azanPlayer.playChime();
+          }
+          state[audioKey] = true;
+          fired.push(audioKey);
+        }
+        const shown = await show(reg, {
           title: `Waktunya salat ${cap(t.key)}`,
           body: `${t.display} — ${sched.region.name}, ${sched.region.prov}`,
-          tag: mainKey,
+          tag: `azanusa-${mainKey}`,
           silent,
         });
-        if (setting.mode === "azan" && azanPlayer.isUnlocked()) {
-          azanPlayer.playAzan();
-        } else if (setting.mode === "short") {
-          azanPlayer.playChime();
+        if (shown) {
+          state[mainKey] = true;
+          fired.push(mainKey);
         }
-        state[mainKey] = true;
-        fired.push(mainKey);
       }
     }
   };
@@ -120,7 +142,24 @@ interface ShowArgs {
   silent?: boolean;
 }
 
-async function show(reg: ServiceWorkerRegistration | undefined | null, args: ShowArgs) {
+/** Tunggu registrasi Service Worker aktif (maks ~3 dtk) */
+async function waitForServiceWorker(): Promise<ServiceWorkerRegistration | undefined> {
+  if (typeof navigator === "undefined" || !navigator.serviceWorker) return undefined;
+  try {
+    return await Promise.race([
+      navigator.serviceWorker.ready,
+      new Promise<undefined>((res) => setTimeout(() => res(undefined), 3000)),
+    ]);
+  } catch {
+    return undefined;
+  }
+}
+
+/** Tampilkan notifikasi via SW (fallback constructor). false = gagal tampil. */
+async function show(
+  reg: ServiceWorkerRegistration | undefined | null,
+  args: ShowArgs
+): Promise<boolean> {
   try {
     if (reg) {
       await reg.showNotification(args.title, {
@@ -133,12 +172,15 @@ async function show(reg: ServiceWorkerRegistration | undefined | null, args: Sho
         silent: args.silent,
         renotify: true,
       } as NotificationOptions & { renotify: boolean });
-    } else {
-      const n = new Notification(args.title, { body: args.body, tag: args.tag, silent: args.silent });
-      n.onclick = () => window.focus();
+      return true;
     }
+    const n = new Notification(args.title, { body: args.body, tag: args.tag, silent: args.silent });
+    n.onclick = () => window.focus();
+    return true;
   } catch {
-    // izin dicabut antar waktu — abaikan
+    // izin dicabut antar waktu / SW tidak siap & constructor ditolak — gagal,
+    // pemanggil akan mengulang pada tick berikutnya
+    return false;
   }
 }
 

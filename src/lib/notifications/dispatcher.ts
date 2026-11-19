@@ -110,8 +110,10 @@ export async function dispatchPrayerPushes(): Promise<DispatchSummary> {
       if (before > 0) {
         const bKey = `${today}:${key}:before`;
         if (now.getTime() >= t - before * 60_000 && now.getTime() < t && !lastNotified[bKey]) {
+          // Sisa menit riil — bila tick datang telat, teks push tetap akurat
+          const remaining = Math.max(1, Math.ceil((t - now.getTime()) / 60_000));
           const r = await sendPush(messaging, token, {
-            title: `Salat ${PRAYER_NAMES[key]} ${before} menit lagi`,
+            title: `Salat ${PRAYER_NAMES[key]} ${remaining} menit lagi`,
             body: `${schedule.display[key]} ${tzLabel} — ${where}`,
             tag: `azanusa-${bKey}`,
             silent,

@@ -69,16 +69,27 @@ export function PushForeground() {
   // Tick mandiri: setiap aplikasi yang terbuka memicu dispatcher server
   // (dibatasi server 1×/menit) sehingga pengingat terkirim ke semua perangkat
   // — termasuk aplikasi yang sedang tertutup — tanpa cron eksternal.
+  // Interval 4 menit lebih pendek dari jendela "tepat waktu" (5 menit) dan
+  // jendela pengingat "x menit sebelum" (default 10) agar tidak ada jendela
+  // yang terlewat di antara dua tick; tick instan saat pengguna kembali ke
+  // aplikasi atau jaringan pulih menutup celah throttling latar belakang.
   useEffect(() => {
-    let interval: ReturnType<typeof setInterval> | null = null;
     const tick = () => {
       fetch("/api/notifications/tick", { keepalive: true }).catch(() => {});
     };
     const t0 = setTimeout(tick, 4000);
-    interval = setInterval(tick, 15 * 60_000);
+    const interval = setInterval(tick, 4 * 60_000);
+    const onVisible = () => {
+      if (document.visibilityState === "visible") tick();
+    };
+    const onOnline = () => tick();
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("online", onOnline);
     return () => {
       clearTimeout(t0);
-      if (interval) clearInterval(interval);
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("online", onOnline);
     };
   }, []);
 

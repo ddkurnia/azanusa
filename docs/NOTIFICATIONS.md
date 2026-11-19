@@ -122,9 +122,11 @@ Kemudian pasang cron eksternal (pilih salah satu):
 3. Aktifkan cron pengirim (GitHub Actions di atas, atau cron-job.org) —
    **opsional namun disarankan**: AZANUSA kini punya **tick mandiri**
    (`/api/notifications/tick` + beacon di `PushForeground`) — setiap aplikasi
-   yang dibuka pengguna mana pun memicu dispatcher (dibatasi server 1×/menit,
-   dedup per hari), sehingga pengingat tetap terkirim tanpa cron. Cron
-   eksternal menutup celah saat tidak ada pengguna yang membuka aplikasi.
+   yang dibuka pengguna mana pun memicu dispatcher (beacon tiap 4 menit +
+   instan saat kembali ke aplikasi/online — di bawah lebar jendela 5 dan 10
+   menit agar tak ada jendela terlewat; dibatasi server 1×/menit, dedup per
+   hari), sehingga pengingat tetap terkirim tanpa cron. Cron eksternal
+   menutup celah saat tidak ada pengguna yang membuka aplikasi.
 4. Verifikasi: buka aplikasi di ponsel → Pengaturan → nyalakan **Push
    notifikasi** → "Push aktif — perangkat terdaftar di cloud AZANUSA." →
    cek endpoint dispatch menjawab `checked >= 1`.
