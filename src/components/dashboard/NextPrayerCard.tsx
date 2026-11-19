@@ -50,7 +50,18 @@ export function NextPrayerCard({
   };
 
   return (
-    <section className="panel-teal-glass rounded-2xl p-4 shadow-lg shadow-black/30">
+    <section
+      className="panel-teal-glass rounded-2xl p-4 shadow-lg shadow-black/30"
+      /*
+        backdrop-filter di-set inline agar TIDAK dipangkas minifier CSS
+        (Lightning CSS bundel produksi hanya menyimpan versi -webkit-).
+        Inline style menjamin blur 8px bekerja di semua browser.
+      */
+      style={{
+        backdropFilter: "blur(8px)",
+        WebkitBackdropFilter: "blur(8px)",
+      }}
+    >
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0 flex-1">
           <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-white/60">
