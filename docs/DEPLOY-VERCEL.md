@@ -28,7 +28,7 @@ Aplikasi ini kompatibel dengan Vercel (Next.js App Router, tanpa server permanen
 | `KEMENAG_SIHAH_API_TOKEN` | Opsional | Aktifkan data resmi SIHAT (lihat docs/KEMENAG-SIHAT.md) |
 | `KEMENAG_SIHAH_API_BASE_URL` | Opsional | Default `https://sihat.kemenag.go.id` |
 | `KEMENAG_SIHAH_WILAYAH_MAP` | Opsional | JSON pemetaan kode wilayah → kode SIHAT |
-| `PRAYER_ENABLE_MIRROR` | Opsional | `true` untuk mengizinkan cermin publik non-resmi |
+| `PRAYER_ENABLE_MIRROR` | Opsional | Bawaan aktif (jadwal Kemenag via cermin myQuran + Aladhan KEMENAG); isi `false` untuk hanya SIHAT resmi + hisab lokal |
 
 > Catatan: variabel kredensial hanya boleh di dashboard Vercel — **tidak pernah** di
 > source code atau repository.

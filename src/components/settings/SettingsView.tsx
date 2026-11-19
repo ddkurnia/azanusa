@@ -221,9 +221,9 @@ export function SettingsView() {
         </header>
         <div className="mt-3 space-y-2">
           {[
-            { v: "auto", t: "Otomatis (paling akurat tersedia)", d: "SIHAT resmi bila dikonfigurasi → perhitungan astronomis" },
+            { v: "auto", t: "Otomatis (paling akurat tersedia)", d: "SIHAT resmi → jadwal Kemenag (cermin myQuran → Aladhan) → hisab astronomis" },
             { v: "kemenag", t: "SIHAT Kemenag (resmi)", d: providers?.kemenagSihatConfigured ? "Token tersedia" : "Menunggu konfigurasi token — status: tidak aktif" },
-            { v: "mirror", t: "Cermin publik (TIDAK RESMI)", d: providers?.mirrorEnabled ? "Diaktifkan lewat server" : "Membutuhkan pengaktifan di server (PRAYER_ENABLE_MIRROR)" },
+            { v: "mirror", t: "Cermin publik (TIDAK RESMI)", d: providers?.mirrorEnabled ? "Aktif bawaan: jadwal Kemenag via myQuran (cadangan: Aladhan metode KEMENAG)" : "Dimatikan di server (PRAYER_ENABLE_MIRROR=false)" },
             { v: "calc", t: "Perhitungan astronomis", d: "Kriteria Kemenag, dikalibrasi (deviasi 0-4 menit)" },
           ].map((o) => (
             <label

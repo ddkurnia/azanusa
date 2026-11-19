@@ -38,10 +38,12 @@ selalu tampil di beranda:
 
 1. **SIHAT Kemenag RI (resmi, terverifikasi)** — aktif otomatis bila
    `KEMENAG_SIHAH_API_TOKEN` dikonfigurasi di server. Panduan: [`docs/KEMENAG-SIHAT.md`](docs/KEMENAG-SIHAT.md).
-2. **Cermin publik (TIDAK resmi)** — replikasi data SIHAT/Bimasislam oleh pihak ketiga
-   (API myQuran). Mati secara bawaan; hanya aktif bila `PRAYER_ENABLE_MIRROR=true`
-   atau dipilih eksplisit oleh pengguna. Selalu dilabeli "TIDAK RESMI".
-3. **Perhitungan astronomis (bawaan)** — hisab lokal kriteria Kemenag: Subuh 20°,
+2. **Cermin publik (TIDAK resmi, bawaan aktif)** — replikasi data Bimasislam/SIHAT
+   Kemenag RI oleh pihak ketiga (API myQuran), dengan pencadang API Aladhan metode
+   "Kementerian Agama Republik Indonesia". Angka mengikuti tabel resmi Kemenag;
+   saluran datanya tetap dilabeli "TIDAK RESMI". Matikan dengan
+   `PRAYER_ENABLE_MIRROR=false` — bila dimatikan, mode auto jatuh ke hisab lokal.
+3. **Perhitungan astronomis (pencadang terakhir)** — hisab lokal kriteria Kemenag: Subuh 20°,
    Isya 18°, Asar Syafi'i; ihtiyat dikalibrasi terhadap tabel SIHAT pada 20 sampel
    (5 kota × 4 musim 2026) dengan **deviasi maksimum 4 menit, rata-rata 0,93 menit**
    (lihat `scripts/calibrate.cjs`). Data ini diberi label jelas sebagai perhitungan,

@@ -44,7 +44,7 @@ export interface ExtraTimeEntry {
 }
 
 export interface ScheduleSource {
-  id: "kemenag-sihat" | "kemenag-mirror" | "astronomical";
+  id: "kemenag-sihat" | "kemenag-mirror" | "aladhan-kemenag" | "astronomical";
   label: string;
   /** true hanya untuk data resmi Kemenag yang terverifikasi (SIHAT) */
   official: boolean;

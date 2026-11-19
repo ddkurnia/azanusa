@@ -1,14 +1,17 @@
 /**
  * Penyedia data jadwal salat AZANUSA — arsitektur modular.
  *
- * Rantai penyedia (prioritas):
- *  1. kemenag-sihat  : API resmi SIHAT Kemenag (butuh token + registrasi IP —
+ * Rantai penyedia (prioritas, mode "auto"):
+ *  1. kemenag-sihat    : API resmi SIHAT Kemenag (butuh token + registrasi IP —
  *     diajukan lewat https://sihat.kemenag.go.id/pengembang). Aktif otomatis
  *     bila env KEMENAG_SIHAH_API_TOKEN tersedia di server.
- *  2. kemenag-mirror : cermin publik yang mereplikasi data SIHAT/Bimasislam.
- *     TIDAK RESMI — hanya aktif bila diaktifkan eksplisit (env
- *     PRAYER_ENABLE_MIRROR=true atau pengaturan pengguna).
- *  3. astronomical   : perhitungan astronomis lokal (kriteria Kemenag,
+ *  2. kemenag-mirror   : cermin publik data Bimasislam/SIHAT Kemenag (API myQuran).
+ *     TIDAK RESMI — aktif secara BAWAAN (matikan dengan env
+ *     PRAYER_ENABLE_MIRROR=false). Angka mengikuti tabel resmi Kemenag RI.
+ *  3. aladhan-kemenag  : API Aladhan dengan metode "Kementerian Agama Republik
+ *     Indonesia" (metode 20) memakai koordinat wilayah — pencadang bila cermin
+ *     tidak menemukan wilayah/tidak dapat diakses. TIDAK RESMI, ikut switch mirror.
+ *  4. astronomical     : perhitungan astronomis lokal (kriteria Kemenag,
  *     dikalibrasi terhadap tabel SIHAT; deviasi umum 0-4 menit). Selalu tersedia.
  *
  * Semua penyedia mengembalikan instan UTC + metadata sumber yang jujur.
@@ -28,10 +31,17 @@ export const SOURCES: Record<ScheduleSource["id"], ScheduleSource> = {
   },
   "kemenag-mirror": {
     id: "kemenag-mirror",
-    label: "Cermin publik (tidak resmi)",
+    label: "Jadwal Kemenag RI (cermin publik)",
     official: false,
     verified: false,
-    note: "Replikasi data SIHAT/Bimasislam Kemenag oleh layanan pihak ketiga (API myQuran). Belum terverifikasi resmi — verifikasi manual disarankan.",
+    note: "Menyalin data jadwal Bimasislam/SIHAT Kemenag RI via API myQuran — angka mengikuti tabel resmi Kemenag, meski saluran datanya bukan layanan resmi.",
+  },
+  "aladhan-kemenag": {
+    id: "aladhan-kemenag",
+    label: "Kriteria Kemenag via API Aladhan",
+    official: false,
+    verified: false,
+    note: "API Aladhan metode \"Kementerian Agama Republik Indonesia\" berdasarkan koordinat wilayah — pencadang bila cermin Kemenag tidak tersedia.",
   },
   astronomical: {
     id: "astronomical",
@@ -62,7 +72,11 @@ export function isKemenagSihatConfigured(): boolean {
 }
 
 export function isMirrorEnabled(): boolean {
-  return env("PRAYER_ENABLE_MIRROR") === "true";
+  // Bawaan AKTIF (keputusan pemilik proyek, Nov 2026): jadwal mengikuti data
+  // Kemenag via cermin publik; hisab lokal menjadi pencadang terakhir.
+  // Matikan dengan env PRAYER_ENABLE_MIRROR=false agar hanya memakai SIHAT
+  // resmi + hisab astronomis lokal.
+  return env("PRAYER_ENABLE_MIRROR") !== "false";
 }
 
 function parseTimeToUTC(dateISO: string, hhmm: string, offsetHours: number): Date | null {
@@ -184,30 +198,68 @@ const mirrorKotaCache = new Map<string, MirrorCacheEntry>();
 async function mirrorKotaId(region: Region): Promise<string | null> {
   const cached = mirrorKotaCache.get(region.code);
   if (cached && Date.now() - cached.fetchedAt < 30 * 86_400_000) return cached.kotaId;
-  const keyword = region.name
+  // Nama wilayah AZANUSA (Kemendagri) ≠ nama kota Kemenag. Contoh:
+  // "Kota Administrasi Jakarta Pusat" -> Kemenag hanya punya "KOTA JAKARTA".
+  // Strategi: coba kata kunci penuh, lalu tanpa kata terakhir, lalu kata
+  // pertama; skor kecocokan + bonus kesesuaian tipe (Kota/Kabupaten).
+  const fullName = region.name
     .replace(/^Kota Administrasi\s+/i, "")
     .replace(/^(Kabupaten|Kota)\s+/i, "")
     .trim();
-  if (!keyword) return null;
+  if (!fullName) return null;
+  const typeMatch = region.name.match(/^(Kabupaten|Kota)\s/i);
+  const wantType = typeMatch ? typeMatch[1].toLowerCase() : null;
+  const words = fullName.split(/\s+/);
+  const keywords = [fullName, words.slice(0, -1).join(" "), words[0]].filter(
+    (w, i, arr) => w && arr.indexOf(w) === i
+  );
+  const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, "");
+  let best: { id: string; score: number } | null = null;
   try {
-    const res = await fetch(
-      `https://api.myquran.com/v1/sholat/kota/cari/${encodeURIComponent(keyword)}`,
-      { signal: AbortSignal.timeout(10_000), cache: "no-store" }
-    );
-    if (!res.ok) return null;
-    const json = (await res.json()) as { status: boolean; data?: { id: string; lokasi: string }[] };
-    if (!json.status || !json.data?.length) return null;
-    const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, "");
-    const target = norm(keyword);
-    const best =
-      json.data.find((x) => norm(x.lokasi).startsWith(target)) ??
-      json.data.find((x) => norm(x.lokasi).includes(target)) ??
-      json.data[0];
-    mirrorKotaCache.set(region.code, { kotaId: best.id, fetchedAt: Date.now() });
-    return best.id;
+    for (const kw of keywords) {
+      try {
+        const res = await fetch(
+          `https://api.myquran.com/v1/sholat/kota/cari/${encodeURIComponent(kw)}`,
+          { signal: AbortSignal.timeout(10_000), cache: "no-store" }
+        );
+        if (!res.ok) continue;
+        const json = (await res.json()) as {
+          status: boolean;
+          data?: { id: string; lokasi: string }[];
+        };
+        if (!json.status || !json.data?.length) continue;
+        for (const x of json.data) {
+          const loc = norm(x.lokasi);
+          const target = norm(kw);
+          if (!loc || !target) continue;
+          // myQuran memakai singkatan "KAB."/"KOTA" pada lokasi — bandingkan
+          // juga setelah awalan tipe itu dibuang (mis. "KAB. KEPULAUAN MERANTI"
+          // harus cocok sempurna dengan "Kepulauan Meranti").
+          const locAlt = loc.replace(/^(kabupaten|kab|kotamadya|kota)/, "");
+          let score = 0;
+          if (loc === target || locAlt === target) score = 100;
+          else if (loc.startsWith(target) || locAlt.startsWith(target)) score = 80;
+          else if (loc.includes(target) || locAlt.includes(target)) score = 60;
+          else if (target.includes(loc)) score = 50;
+          if (score === 0) continue;
+          if (wantType && (loc.startsWith(wantType) || (wantType === "kabupaten" && loc.startsWith("kab"))))
+            score += 5;
+          if (!best || score > best.score) best = { id: x.id, score };
+        }
+        // Kecocokan tepat tipe sudah didapat — berhenti lebih awal
+        if (best && best.score >= 80) break;
+      } catch {
+        continue;
+      }
+    }
   } catch {
     return null;
   }
+  if (best) {
+    mirrorKotaCache.set(region.code, { kotaId: best.id, fetchedAt: Date.now() });
+    return best.id;
+  }
+  return null;
 }
 
 async function providerKemenagMirror(ctx: ProviderContext): Promise<ProviderResult> {
@@ -252,7 +304,58 @@ async function providerKemenagMirror(ctx: ProviderContext): Promise<ProviderResu
   }
 }
 
-/* ================= Penyedia 3: perhitungan astronomis ================= */
+/* ============ Penyedia 3: Aladhan metode KEMENAG (pencadang) ============ */
+
+async function providerAladhanKemenag(ctx: ProviderContext): Promise<ProviderResult> {
+  const [y, m, d] = ctx.dateISO.split("-").map(Number);
+  const dd = String(d).padStart(2, "0");
+  const mm = String(m).padStart(2, "0");
+  // Metode 20 = "Kementerian Agama Republik Indonesia"; school=0 = Asar Syafi'i
+  const url = `https://api.aladhan.com/v1/timings/${dd}-${mm}-${y}?latitude=${ctx.region.lat}&longitude=${ctx.region.lng}&method=20&school=0`;
+  try {
+    const res = await fetch(url, { signal: AbortSignal.timeout(10_000), cache: "no-store" });
+    if (!res.ok) return { timesUTC: null, source: null, error: `Aladhan HTTP ${res.status}` };
+    const json = (await res.json()) as {
+      code?: number;
+      data?: { timings?: Record<string, string> };
+    };
+    const t = json.data?.timings;
+    if (!t) return { timesUTC: null, source: null, error: "Format respons Aladhan tidak dikenali" };
+    const pick = (...keys: string[]): string | null => {
+      for (const k of keys) {
+        const v = t[k];
+        if (typeof v === "string") {
+          const m2 = /^(\d{1,2}):(\d{2})/.exec(v.trim());
+          if (m2) return `${m2[1]}:${m2[2]}`;
+        }
+      }
+      return null;
+    };
+    const subuh = pick("Fajr");
+    const zuhur = pick("Dhuhr");
+    const asar = pick("Asr");
+    const magrib = pick("Maghrib");
+    const isya = pick("Isha");
+    const terbit = pick("Sunrise");
+    if (!subuh || !zuhur || !asar || !magrib || !isya) {
+      return { timesUTC: null, source: null, error: "Waktu Aladhan tidak lengkap" };
+    }
+    const off = tzOffset(ctx.region, ctx.dateISO);
+    const timesUTC: Record<string, Date> = {
+      subuh: parseTimeToUTC(ctx.dateISO, subuh, off)!,
+      zuhur: parseTimeToUTC(ctx.dateISO, zuhur, off)!,
+      asar: parseTimeToUTC(ctx.dateISO, asar, off)!,
+      magrib: parseTimeToUTC(ctx.dateISO, magrib, off)!,
+      isya: parseTimeToUTC(ctx.dateISO, isya, off)!,
+    };
+    if (terbit) timesUTC.terbit = parseTimeToUTC(ctx.dateISO, terbit, off)!;
+    return { timesUTC, source: SOURCES["aladhan-kemenag"] };
+  } catch (e) {
+    return { timesUTC: null, source: null, error: `Aladhan tidak dapat diakses: ${(e as Error).message}` };
+  }
+}
+
+/* ================= Penyedia 4: perhitungan astronomis ================= */
 
 function providerAstronomical(ctx: ProviderContext): ProviderResult {
   const t = calculatePrayerTimes(ctx.dateISO, ctx.region.lat, ctx.region.lng, KEMENAG_OPTIONS);
@@ -301,6 +404,11 @@ export async function fetchSchedule(
     attempts.push(r);
     if (useable(r)) result = r;
     else if (choice === "mirror") throw new Error(r.error ?? "Cermin publik tidak tersedia");
+  }
+  if (!result && choice === "auto" && isMirrorEnabled()) {
+    const r = await providerAladhanKemenag(ctx);
+    attempts.push(r);
+    if (useable(r)) result = r;
   }
   if (!result && (choice === "calc" || choice === "auto")) {
     result = providerAstronomical(ctx);

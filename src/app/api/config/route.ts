@@ -9,7 +9,11 @@ export const dynamic = "force-dynamic";
 export const APP_VERSION = "1.0.0";
 
 export async function GET() {
-  const defaultSource = isKemenagSihatConfigured() ? SOURCES["kemenag-sihat"] : SOURCES.astronomical;
+  const defaultSource = isKemenagSihatConfigured()
+    ? SOURCES["kemenag-sihat"]
+    : isMirrorEnabled()
+      ? SOURCES["kemenag-mirror"]
+      : SOURCES.astronomical;
   const body: ApiConfigResponse = {
     appVersion: APP_VERSION,
     providers: {
