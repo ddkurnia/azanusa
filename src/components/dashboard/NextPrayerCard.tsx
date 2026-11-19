@@ -4,6 +4,9 @@
  * NextPrayerCard — kartu hitung mundur azan sesuai mockup:
  * label "Menuju Waktu", nama salat berikutnya, countdown emas realtime,
  * tombol audio bulat (play/pause azan nyata).
+ * Kartu ini DI-RENDER DI DALAM hero (MosqueHero) dan menumpuk di atas
+ * gambar masjid memakai panel-teal-glass: dark teal semi-transparan,
+ * border hijau lembut, blur halus — bangunan masjid tetap terlihat di belakangnya.
  */
 
 import { useEffect, useState } from "react";
@@ -47,7 +50,7 @@ export function NextPrayerCard({
   };
 
   return (
-    <section className="panel-teal rounded-2xl p-4 shadow-lg shadow-black/25">
+    <section className="panel-teal-glass rounded-2xl p-4 shadow-lg shadow-black/30">
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0 flex-1">
           <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-white/60">

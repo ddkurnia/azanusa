@@ -208,6 +208,15 @@
   border: 1px solid rgba(124, 205, 191, 0.26);
 }
 
+/* Kartu overlay di atas gambar masjid (hero): dark teal semi-transparan,
+   border hijau lembut, blur halus — bangunan masjid tetap tampak di belakangnya */
+.panel-teal-glass {
+  background: linear-gradient(168deg, rgba(10, 81, 72, 0.78) 0%, rgba(4, 56, 50, 0.84) 100%);
+  border: 1px solid rgba(124, 205, 191, 0.38);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
 /* Highlight emas baris salat berikutnya */
 .panel-gold {
   background: linear-gradient(180deg, #ffd95c 0%, #f5c542 100%);

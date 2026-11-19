@@ -2,9 +2,10 @@
 
 /**
  * HomeView — dashboard AZANUSA sesuai mockup resmi:
- * lokasi + tanggal (LocationHeader), hero masjid (MosqueHero),
- * kartu hitung mundur (NextPrayerCard), jadwal lima salat (PrayerSchedule),
- * lencana sumber data, menu akses cepat (QuickMenu).
+ * SATU section hero (MosqueHero) berisi gambar masjid sebagai background;
+ * lokasi + tanggal di atas hero, kartu hitung mundur (NextPrayerCard)
+ * overlay DI DALAM gambar di bagian bawah hero. Di bawahnya: jadwal lima
+ * salat (PrayerSchedule), lencana sumber data, menu akses cepat (QuickMenu).
  */
 
 import { useMemo } from "react";
@@ -36,9 +37,25 @@ export function HomeView({
 
   return (
     <div>
-      <LocationHeader onOpenLocation={onOpenLocation} />
-      <MosqueHero />
+      {/* ===== HERO: satu section utuh — gambar masjid sebagai background ===== */}
+      {/* Lokasi + tanggal di bagian ATAS hero, kartu countdown overlay di bagian BAWAH gambar */}
+      <MosqueHero>
+        <LocationHeader onOpenLocation={onOpenLocation} />
 
+        {/* Jeda tampilan agar bangunan masjid terlihat jelas di belakang & di atas kartu */}
+        <div className="h-16 sm:h-20 md:h-24" aria-hidden />
+
+        {/* Kartu countdown menumpuk DI ATAS gambar masjid (bagian bawah hero) */}
+        <div className="px-3 pb-3">
+          {schedule ? (
+            <NextPrayerCard next={next} timezone={schedule.timezone} />
+          ) : loading ? (
+            <SkeletonHero />
+          ) : null}
+        </div>
+      </MosqueHero>
+
+      {/* ===== Konten di bawah hero: jadwal salat, menu cepat, dll ===== */}
       <div className="space-y-3 px-3 pt-3">
         {!schedule ? (
           <div className="space-y-3">
@@ -51,7 +68,6 @@ export function HomeView({
                 </p>
               </div>
             )}
-            {loading && !error && <SkeletonHero />}
             <SkeletonList />
           </div>
         ) : (
@@ -71,7 +87,6 @@ export function HomeView({
                 </span>
               </div>
             )}
-            <NextPrayerCard next={next} timezone={schedule.timezone} />
             <PrayerSchedule
               schedule={schedule}
               now={now}
@@ -93,7 +108,7 @@ export function HomeView({
 
 function SkeletonHero() {
   return (
-    <div className="panel-teal animate-pulse rounded-2xl p-5">
+    <div className="panel-teal-glass animate-pulse rounded-2xl p-5">
       <div className="h-3 w-24 rounded bg-white/15" />
       <div className="mt-2 h-8 w-40 rounded bg-white/20" />
       <div className="mt-4 h-9 w-44 rounded-full bg-white/20" />

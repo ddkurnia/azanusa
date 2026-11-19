@@ -2,8 +2,9 @@
 
 /**
  * LocationHeader — lokasi aktif + tanggal Masehi & Hijriah sesuai mockup.
- * Cuaca tidak ditampilkan karena integrasi data cuaca belum tersedia
- * (tidak boleh menampilkan data palsu).
+ * Dirender DI DALAM hero (di atas gambar masjid), dengan bayangan teks halus
+ * agar tetap mudah dibaca. Cuaca tidak ditampilkan karena integrasi data
+ * cuaca belum tersedia (tidak boleh menampilkan data palsu).
  */
 
 import { ChevronDown, MapPin } from "lucide-react";
@@ -21,7 +22,7 @@ export function LocationHeader({ onOpenLocation }: { onOpenLocation: () => void 
   if (!location) return null;
 
   return (
-    <section className="px-4 pb-1 pt-3 text-white">
+    <section className="text-shadow-soft px-4 pb-1 pt-3 text-white">
       <button
         onClick={onOpenLocation}
         className="group flex max-w-full items-center gap-2 text-left"
