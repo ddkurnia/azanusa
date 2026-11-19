@@ -1,147 +1,114 @@
 import { NextRequest, NextResponse } from "next/server";
+import {
+  MosqueItem,
+  OVERPASS_SERVER_MIRRORS,
+  buildOverpassQuery,
+  overpassToMosques,
+  type OverpassElement,
+} from "@/lib/mosques";
 
 /**
  * API pencarian masjid terdekat — PENCADANG (mode "server").
  *
- * CATATAN ARSITEKTUR: sumber utama adalah panggilan langsung dari perangkat
- * pengguna ke Overpass (Overpass menyatakan diri untuk pemakaian browser;
- * IP datacenter seperti Vercel kerap dibatasi 429/406). Route ini hanya
- * dipakai bila panggilan langsung dari perangkat gagal, sehingga hemat kuota:
- *  - Round-robin bergilir antar mirror (1 kueri per panggilan, bukan balapan
- *    3 mirror) dengan timeout 8 detik per mirror.
- *  - Cache sukses 20 menit per bulat koordinat (~1 km); cache gagal 60 detik
- *    agar saat semua mirror dibatasi, kuota tidak dibakar terus-menerus.
+ * Sumber utama adalah panggilan langsung dari perangkat pengguna ke Overpass
+ * (Overpass dirancang untuk pemakaian browser; IP datacenter seperti Vercel
+ * kerap dibatasi 429/406). Route ini dipakai bila panggilan langsung gagal.
+ *
+ * Ketahanan:
+ *  - Round-robin bergilir antar 5 mirror; maks 4 percobaan per panggilan,
+ *    timeout 4 detik per mirror (total terkendali di bawah maxDuration).
+ *  - Header User-Agent/Accept eksplisit — sebagian mirror menolak (406)
+ *    klien tanpa identitas.
+ *  - Kueri luas (semua amenity=place_of_worship + building=mosque) dengan
+ *    penyaringan indikasi muslim di JS — tag religion sering hilang pada
+ *    data masjid Indonesia.
+ *  - Cache sukses 20 menit per bulat koordinat (~1 km); cache gagal 45 detik
+ *    dan MEMUAT PESAN ERROR (tidak lagi gagal senyap).
  *  - Dedupe in-flight: panggilan serentak untuk kunci sama menunggu satu kueri.
  *
  * Param: lat, lng (wajib), radius (meter, opsional, 500-10000, default 3000),
  *        limit (opsional, default 30, maks 50).
- * Respons: { ok, count, cached?, mosques: [{id,name,lat,lng,distanceKm}] }
+ * Respons: { ok, count, via?, cached?, radius, mosques: [{id,name,lat,lng,distanceKm}] }
+ *          atau { ok:false, error } dengan status 502.
  */
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 20;
 
-const OVERPASS_ENDPOINTS = [
-  "https://overpass.kumi.systems/api/interpreter",
-  "https://overpass.private.coffee/api/interpreter",
-  "https://overpass.osm.jp/api/interpreter",
-  "https://overpass-api.de/api/interpreter",
-];
-
+const ATTEMPTS_PER_CALL = 4;
+const PER_ATTEMPT_TIMEOUT_MS = 4_000;
 const SUCCESS_TTL_MS = 20 * 60_000;
-const FAILURE_TTL_MS = 60_000;
-const MEMORY_CACHE = new Map<string, { data: MosquesPayload; expiresAt: number }>();
-const IN_FLIGHT = new Map<string, Promise<MosquesPayload>>();
-let mirrorCursor = 0;
+const FAILURE_TTL_MS = 45_000;
 
-interface MosqueItem {
-  id: string;
-  name: string;
-  lat: number;
-  lng: number;
-  distanceKm: number;
+interface FailurePayload {
+  ok: false;
+  count: 0;
+  mosques: MosqueItem[];
+  error: string;
 }
+
+const MEMORY_CACHE = new Map<string, { data: MosquesPayload | FailurePayload; expiresAt: number }>();
+const IN_FLIGHT = new Map<string, Promise<MosquesPayload>>();
 
 interface MosquesPayload {
   ok: boolean;
   count: number;
+  via?: string;
+  radius: number;
   cached?: boolean;
   mosques: MosqueItem[];
 }
 
-function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
-  const toRad = Math.PI / 180;
-  const a =
-    Math.sin(((lat2 - lat1) * toRad) / 2) ** 2 +
-    Math.cos(lat1 * toRad) * Math.cos(lat2 * toRad) * Math.sin(((lng2 - lng1) * toRad) / 2) ** 2;
-  return 2 * 6371 * Math.asin(Math.sqrt(a));
+let mirrorCursor = 0;
+
+async function fetchOneMirror(endpoint: string, query: string): Promise<{ elements: OverpassElement[] } | null> {
+  const host = new URL(endpoint).host;
+  try {
+    const res = await fetch(endpoint, {
+      method: "POST",
+      body: "data=" + encodeURIComponent(query),
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+        "User-Agent": "AZANUSA/1.0 (+https://azanusa.vercel.app)",
+        Accept: "application/json",
+      },
+      signal: AbortSignal.timeout(PER_ATTEMPT_TIMEOUT_MS),
+      cache: "no-store",
+    });
+    if (!res.ok) {
+      console.warn(`[mosques] ${host} HTTP ${res.status}`);
+      return null;
+    }
+    const json = (await res.json()) as { elements?: OverpassElement[] };
+    return { elements: json.elements ?? [] };
+  } catch (e) {
+    console.warn(`[mosques] ${host} gagal: ${(e as Error).message}`);
+    return null;
+  }
 }
 
-function buildQuery(lat: number, lng: number, radius: number, limit: number): string {
-  return (
-    `[out:json][timeout:15];` +
-    `(node(around:${radius},${lat},${lng})["amenity"="place_of_worship"]["religion"="muslim"];` +
-    `way(around:${radius},${lat},${lng})["amenity"="place_of_worship"]["religion"="muslim"];` +
-    `relation(around:${radius},${lat},${lng})["amenity"="place_of_worship"]["religion"="muslim"];);` +
-    `out center ${Math.min(80, limit * 3)};`
-  );
-}
-
-interface OverpassElement {
-  type: string;
-  id: number;
-  lat?: number;
-  lon?: number;
-  center?: { lat: number; lon: number };
-  tags?: Record<string, string>;
-}
-
-function toMosques(
-  json: { elements?: OverpassElement[] },
-  lat: number,
-  lng: number,
-  limit: number
-): MosqueItem[] {
-  const seen = new Set<string>();
-  return (json.elements ?? [])
-    .map((e) => {
-      const mlat = e.lat ?? e.center?.lat;
-      const mlng = e.lon ?? e.center?.lon;
-      if (!Number.isFinite(mlat) || !Number.isFinite(mlng)) return null;
-      const rawName = e.tags?.["name:en"] ?? e.tags?.name ?? "";
-      return {
-        id: `${e.type}/${e.id}`,
-        name: rawName || "Masjid/musala (nama tidak tercatat)",
-        lat: mlat as number,
-        lng: mlng as number,
-        distanceKm: haversineKm(lat, lng, mlat as number, mlng as number),
-      } as MosqueItem;
-    })
-    .filter((m): m is MosqueItem => m !== null)
-    // Dedup: nama + koordinat 4 desimal (~11 m) untuk node & way yang sama
-    .filter((m) => {
-      const k = `${m.name}|${m.lat.toFixed(4)}|${m.lng.toFixed(4)}`;
-      if (seen.has(k)) return false;
-      seen.add(k);
-      return true;
-    })
-    .sort((a, b) => a.distanceKm - b.distanceKm)
-    .slice(0, limit);
-}
-
-/** Satu kueri Overpass per panggilan — mulai dari mirror berikutnya (round-robin) */
+/** Coba hingga 4 mirror bergilir; kembalikan payload pertama yang sukses. */
 async function queryOverpass(
   lat: number,
   lng: number,
   radius: number,
   limit: number
 ): Promise<MosquesPayload> {
-  const query = buildQuery(lat, lng, radius, limit);
+  const query = buildOverpassQuery(lat, lng, radius, limit * 3);
   const errors: string[] = [];
   const start = mirrorCursor;
-  for (let i = 0; i < 2; i++) {
-    // maks 2 mirror per panggilan agar cepat kembali ke klien
-    const endpoint = OVERPASS_ENDPOINTS[(start + i) % OVERPASS_ENDPOINTS.length];
-    try {
-      const res = await fetch(endpoint, {
-        method: "POST",
-        body: "data=" + encodeURIComponent(query),
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        signal: AbortSignal.timeout(8_000),
-        cache: "no-store",
-      });
-      if (!res.ok) {
-        errors.push(`${new URL(endpoint).host} HTTP ${res.status}`);
-        continue;
-      }
-      const json = (await res.json()) as { elements?: OverpassElement[] };
-      mirrorCursor = (start + i + 1) % OVERPASS_ENDPOINTS.length;
-      const mosques = toMosques(json, lat, lng, limit);
-      return { ok: true, count: mosques.length, mosques };
-    } catch (e) {
-      errors.push(`${new URL(endpoint).host}: ${(e as Error).message}`);
+  for (let i = 0; i < ATTEMPTS_PER_CALL; i++) {
+    const endpoint = OVERPASS_SERVER_MIRRORS[(start + i) % OVERPASS_SERVER_MIRRORS.length];
+    const host = new URL(endpoint).host;
+    const json = await fetchOneMirror(endpoint, query);
+    if (json) {
+      mirrorCursor = (start + i + 1) % OVERPASS_SERVER_MIRRORS.length;
+      const mosques = overpassToMosques(json, lat, lng, limit);
+      return { ok: true, count: mosques.length, via: host, radius, mosques };
     }
+    errors.push(host);
   }
-  throw new Error(errors.join("; ") || "Semua layanan Overpass tidak dapat dijangkau");
+  throw new Error(`Semua mirror Overpass gagal (${errors.join(", ")})`);
 }
 
 export async function GET(req: NextRequest) {
@@ -160,10 +127,10 @@ export async function GET(req: NextRequest) {
   const cacheKey = `${lat.toFixed(2)},${lng.toFixed(2)},${radius}`;
   const hit = MEMORY_CACHE.get(cacheKey);
   if (hit && hit.expiresAt > Date.now()) {
-    return NextResponse.json({ ...hit.data, cached: true });
+    // Cache negatif kini membawa pesan error — klien tidak lagi gagal senyap
+    return NextResponse.json({ ...hit.data, cached: true }, { status: hit.data.ok ? 200 : 502 });
   }
 
-  // Dedupe in-flight: panggilan serentak untuk wilayah sama menunggu satu kueri
   let flight = IN_FLIGHT.get(cacheKey);
   if (!flight) {
     flight = queryOverpass(lat, lng, radius, limit)
@@ -172,11 +139,13 @@ export async function GET(req: NextRequest) {
         return payload;
       })
       .catch((e: Error) => {
-        // Cache negatif singkat: hentikan penembakan beruntun saat mirror dibatasi
-        MEMORY_CACHE.set(cacheKey, {
-          data: { ok: false, count: 0, mosques: [] },
-          expiresAt: Date.now() + FAILURE_TTL_MS,
-        });
+        const data: FailurePayload = {
+          ok: false,
+          count: 0,
+          mosques: [],
+          error: e.message || "Layanan data masjid OpenStreetMap tidak dapat dijangkau",
+        };
+        MEMORY_CACHE.set(cacheKey, { data, expiresAt: Date.now() + FAILURE_TTL_MS });
         throw e;
       })
       .finally(() => IN_FLIGHT.delete(cacheKey));

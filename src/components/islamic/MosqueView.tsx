@@ -3,107 +3,59 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Building2, Navigation, Loader2, ExternalLink, MapPin, LocateFixed } from "lucide-react";
 import { useAppStore } from "@/lib/store";
+import {
+  MosqueItem,
+  OVERPASS_CLIENT_MIRRORS,
+  buildOverpassQuery,
+  overpassToMosques,
+  type OverpassElement,
+} from "@/lib/mosques";
 import { EmptyState } from "./CalendarView";
 
-interface MosqueItem {
-  id: string;
-  name: string;
-  lat: number;
-  lng: number;
-  distanceKm: number;
-}
-
 type Origin = "wilayah" | "gps";
+type Source = "device" | "proxy";
 
 /**
- * Mirror Overpass yang ramah klien-browser. Overpass dirancang untuk pemakaian
- * langsung dari browser (IP perangkat pengguna tidak dibatasi seperti IP
- * datacenter) dan mengizinkan CORS. Ketiga mirror dijalankan paralel — hasil
- * tercepat yang sukses dipakai.
+ * Pencarian masjid realtime dari OpenStreetMap (Overpass).
+ *
+ * Strategi berlapis agar tahan gangguan:
+ *  1. Langsung dari perangkat: cascade mirror Overpass satu per satu
+ *     (sopan, tanpa kueri paralel identik), timeout 6 dtk per mirror.
+ *  2. Pencadang: proxy server AZANUSA /api/mosques (round-robin 5 mirror
+ *     + cache, dengan pesan error eksplisit).
+ *  3. Radius diperluas otomatis 3 km → 10 km bila hasil kosong (data OSM
+ *     di banyak wilayah Indonesia masih terbatas).
  */
-const OVERPASS_MIRRORS = [
-  "https://overpass-api.de/api/interpreter",
-  "https://overpass.kumi.systems/api/interpreter",
-  "https://overpass.private.coffee/api/interpreter",
-];
 
-function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
-  const toRad = Math.PI / 180;
-  const a =
-    Math.sin(((lat2 - lat1) * toRad) / 2) ** 2 +
-    Math.cos(lat1 * toRad) * Math.cos(lat2 * toRad) * Math.sin(((lng2 - lng1) * toRad) / 2) ** 2;
-  return 2 * 6371 * Math.asin(Math.sqrt(a));
+async function fetchFromServer(lat: number, lng: number, radius: number): Promise<MosqueItem[]> {
+  const res = await fetch(`/api/mosques?lat=${lat}&lng=${lng}&radius=${radius}&limit=30`, {
+    signal: AbortSignal.timeout(25_000),
+  });
+  const json = (await res.json()) as { ok?: boolean; mosques?: MosqueItem[]; error?: string };
+  if (!json.ok) throw new Error(json.error ?? `Proxy server gagal (HTTP ${res.status})`);
+  return json.mosques ?? [];
 }
 
-interface OverpassElement {
-  type: string;
-  id: number;
-  lat?: number;
-  lon?: number;
-  center?: { lat: number; lon: number };
-  tags?: Record<string, string>;
-}
-
-function toList(json: { elements?: OverpassElement[] }, lat: number, lng: number): MosqueItem[] {
-  const seen = new Set<string>();
-  return (json.elements ?? [])
-    .map((e) => {
-      const mlat = e.lat ?? e.center?.lat;
-      const mlng = e.lon ?? e.center?.lon;
-      if (!Number.isFinite(mlat) || !Number.isFinite(mlng)) return null;
-      const rawName = e.tags?.["name:en"] ?? e.tags?.name ?? "";
-      return {
-        id: `${e.type}/${e.id}`,
-        name: rawName || "Masjid/musala (nama tidak tercatat)",
-        lat: mlat as number,
-        lng: mlng as number,
-        distanceKm: haversineKm(lat, lng, mlat as number, mlng as number),
-      } as MosqueItem;
-    })
-    .filter((m): m is MosqueItem => m !== null)
-    .filter((m) => {
-      const k = `${m.name}|${m.lat.toFixed(4)}|${m.lng.toFixed(4)}`;
-      if (seen.has(k)) return false;
-      seen.add(k);
-      return true;
-    })
-    .sort((a, b) => a.distanceKm - b.distanceKm)
-    .slice(0, 30);
-}
-
-/** Panggil Overpass langsung dari perangkat: ketiga mirror berlomba */
-async function fetchFromMirrors(lat: number, lng: number): Promise<MosqueItem[]> {
-  const radius = 3000;
-  const query =
-    `[out:json][timeout:20];` +
-    `(node(around:${radius},${lat},${lng})["amenity"="place_of_worship"]["religion"="muslim"];` +
-    `way(around:${radius},${lat},${lng})["amenity"="place_of_worship"]["religion"="muslim"];` +
-    `relation(around:${radius},${lat},${lng})["amenity"="place_of_worship"]["religion"="muslim"];);` +
-    `out center 90;`;
-  const attempts = OVERPASS_MIRRORS.map((url) =>
-    (async () => {
+/** Cascade mirror dari perangkat: satu per satu, mirror sehat pertama menang. */
+async function fetchFromDevice(lat: number, lng: number, radius: number): Promise<MosqueItem[]> {
+  const query = buildOverpassQuery(lat, lng, radius, 90);
+  const errors: string[] = [];
+  for (const url of OVERPASS_CLIENT_MIRRORS.slice(0, 4)) {
+    try {
       const res = await fetch(url, {
         method: "POST",
         body: "data=" + encodeURIComponent(query),
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        signal: AbortSignal.timeout(15_000),
+        signal: AbortSignal.timeout(6_000),
       });
       if (!res.ok) throw new Error(`${new URL(url).host} HTTP ${res.status}`);
-      return (await res.json()) as { elements?: OverpassElement[] };
-    })()
-  );
-  const winner = await Promise.any(attempts);
-  return toList(winner, lat, lng);
-}
-
-/** Pencadang: proxy server AZANUSA (round-robin mirror + cache) */
-async function fetchFromServer(lat: number, lng: number): Promise<MosqueItem[]> {
-  const res = await fetch(`/api/mosques?lat=${lat}&lng=${lng}&radius=3000&limit=30`, {
-    signal: AbortSignal.timeout(20_000),
-  });
-  const json = (await res.json()) as { ok?: boolean; mosques?: MosqueItem[]; error?: string };
-  if (!json.ok) throw new Error(json.error ?? "Proxy server gagal");
-  return json.mosques ?? [];
+      const json = (await res.json()) as { elements?: OverpassElement[] };
+      return overpassToMosques(json, lat, lng, 30);
+    } catch (e) {
+      errors.push(`${new URL(url).host}: ${(e as Error).message}`);
+    }
+  }
+  throw new Error(errors.join("; ") || "Semua mirror Overpass tidak dapat dijangkau");
 }
 
 export function MosqueView() {
@@ -112,52 +64,76 @@ export function MosqueView() {
   const [state, setState] = useState<"idle" | "loading" | "gps" | "error" | "done">("idle");
   const [error, setError] = useState("");
   const [origin, setOrigin] = useState<Origin>("wilayah");
+  const [source, setSource] = useState<Source | null>(null);
+  const [radius, setRadius] = useState(3000);
+  const [radiusNote, setRadiusNote] = useState("");
   const abortRef = useRef<AbortController | null>(null);
   const geoWatchRef = useRef<number | null>(null);
-  // Cache hasil terakhir sesi ini — buka ulang halaman instan, tetap bisa muat ulang
+  // Cache hasil sesi ini per (koordinat, radius) — buka ulang halaman instan
   const resultCache = useRef<Map<string, MosqueItem[]>>(new Map());
 
-  const search = useCallback(
-    async (lat: number, lng: number, src: Origin) => {
-      setState(src === "gps" ? "gps" : "loading");
-      setError("");
-      abortRef.current?.abort();
-      const ac = new AbortController();
-      abortRef.current = ac;
-      const key = `${lat.toFixed(3)},${lng.toFixed(3)}`;
-      const cached = resultCache.current.get(key);
-      if (cached) {
-        setItems(cached);
-        setOrigin(src);
-        setState("done");
-      }
-      try {
-        // 1) Utama: Overpass langsung dari perangkat (mirror tercepat menang)
+  const search = useCallback(async (lat: number, lng: number, src: Origin) => {
+    setState(src === "gps" ? "gps" : "loading");
+    setError("");
+    setRadiusNote("");
+    setSource(null);
+    abortRef.current?.abort();
+    const ac = new AbortController();
+    abortRef.current = ac;
+
+    try {
+      // Eskalasi radius: 3 km dulu; kalau kosong, coba 10 km
+      for (const r of [3000, 10_000]) {
+        const key = `${lat.toFixed(3)},${lng.toFixed(3)},${r}`;
+        const cached = resultCache.current.get(key);
+        if (cached) {
+          if (cached.length === 0 && r === 3000) continue; // cache kosong → langsung eskalasi
+          setItems(cached);
+          setOrigin(src);
+          setSource(null);
+          setRadius(r);
+          if (r === 10_000) setRadiusNote("Radius diperluas ke 10 km karena tidak ada data pada radius 3 km.");
+          setState("done");
+          return;
+        }
+        setRadius(r);
+        if (r === 10_000) setRadiusNote("Tidak ada masjid tercatat pada radius 3 km — memperluas ke 10 km…");
+
+        // 1) Utama: Overpass langsung dari perangkat
         let list: MosqueItem[];
+        let via: Source = "device";
         try {
-          list = await fetchFromMirrors(lat, lng);
+          list = await fetchFromDevice(lat, lng, r);
         } catch (directErr) {
-          if ((directErr as Error).name === "AbortError") return;
+          if ((directErr as Error).name === "AbortError" || ac.signal.aborted) return;
           // 2) Pencadang: proxy server AZANUSA
-          list = await fetchFromServer(lat, lng);
+          list = await fetchFromServer(lat, lng, r);
+          via = "proxy";
         }
         if (ac.signal.aborted) return;
+
         resultCache.current.set(key, list);
-        setItems(list);
-        setOrigin(src);
-        setState("done");
-      } catch (e) {
-        if ((e as Error).name === "AbortError" || ac.signal.aborted) return;
-        setState("error");
-        setError(
-          e instanceof Error && e.message && !e.message.includes("HTTP") && !e.message.includes("fetch")
-            ? e.message
-            : "Layanan data masjid (OpenStreetMap Overpass) sedang tidak dapat dijangkau. Coba lagi nanti."
-        );
+        if (list.length > 0 || r === 10_000) {
+          setItems(list);
+          setOrigin(src);
+          setSource(via);
+          setRadiusNote(r === 10_000 ? "Radius diperluas ke 10 km karena tidak ada data pada radius 3 km." : "");
+          setState("done");
+          return;
+        }
+        // list kosong pada 3 km → lanjut eskalasi ke 10 km
       }
-    },
-    []
-  );
+    } catch (e) {
+      if ((e as Error).name === "AbortError" || ac.signal.aborted) return;
+      setState("error");
+      const msg = e instanceof Error ? e.message : "";
+      setError(
+        msg && !msg.includes("HTTP") && !msg.includes("fetch") && !msg.includes("mirror")
+          ? msg
+          : "Layanan data masjid (OpenStreetMap Overpass) sedang tidak dapat dijangkau dari perangkat maupun server. Coba lagi beberapa saat lagi."
+      );
+    }
+  }, []);
 
   // Realtime: cari otomatis saat halaman dibuka / wilayah berganti
   const autoRef = useRef<string | null>(null);
@@ -221,6 +197,7 @@ export function MosqueView() {
   }
 
   const busy = state === "loading" || state === "gps";
+  const radiusKm = radius / 1000;
 
   return (
     <div className="space-y-3">
@@ -233,8 +210,8 @@ export function MosqueView() {
               {state === "gps"
                 ? "Menentukan lokasi Anda…"
                 : origin === "gps"
-                  ? "Masjid & musala sekitar lokasi Anda (GPS) — radius 3 km"
-                  : `Masjid & musala sekitar ${location.name} (radius 3 km)`}
+                  ? `Masjid & musala sekitar lokasi Anda (GPS) — radius ${radiusKm} km`
+                  : `Masjid & musala sekitar ${location.name} (radius ${radiusKm} km)`}
             </p>
           </div>
         </div>
@@ -272,7 +249,13 @@ export function MosqueView() {
         </div>
       )}
 
-      {state === "idle" && (
+      {radiusNote && state !== "error" && (
+        <p className="rounded-xl border border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+          {radiusNote}
+        </p>
+      )}
+
+      {state === "idle" && !radiusNote && (
         <p className="px-1 text-xs leading-relaxed text-muted-foreground">
           Data masjid bersumber dari OpenStreetMap (kontribusi publik), diperbarui langsung
           setiap kali Anda membuka halaman ini. Untuk wilayah dengan data OSM terbatas, hasil
@@ -284,7 +267,10 @@ export function MosqueView() {
         <section className="space-y-2">
           {items.length === 0 && (
             <div className="rounded-xl border border-border bg-card p-6 text-center text-sm text-muted-foreground">
-              Belum ada masjid tercatat di OpenStreetMap untuk radius ini.
+              Tidak ada masjid tercatat di OpenStreetMap dalam radius {radiusKm} km.
+              {origin === "gps"
+                ? " Coba tombol Muat ulang beberapa saat lagi, atau gunakan pusat wilayah."
+                : " Aktifkan Lokasi saya (GPS) agar pencarian mengikuti posisi Anda sebenarnya."}
             </div>
           )}
           {items.map((m) => (
@@ -309,7 +295,8 @@ export function MosqueView() {
             </a>
           ))}
           <p className="px-1 text-[10px] text-muted-foreground">
-            © Kontributor OpenStreetMap — data realtime langsung dari perangkat Anda. Rute
+            © Kontributor OpenStreetMap — data realtime{" "}
+            {source === "proxy" ? "melalui proxy server AZANUSA" : "langsung dari perangkat Anda"}. Rute
             dibuka dengan aplikasi peta perangkat.
           </p>
         </section>
