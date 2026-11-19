@@ -28,7 +28,7 @@ jadwal lima salat dengan highlight emas, menu akses cepat, dan navigasi bawah li
 | Kompas kiblat | ✅ | Azimut bulatan besar ke Ka'bah + kompas sensor (opsional) |
 | Doa harian | ✅ | 12 doa pilihan (Arab, latin, arti) |
 | Zikir | ✅ | Tasbih 33×3 + tahlil dengan counter dan getar |
-| Pencarian masjid | ✅ | OpenStreetMap Overpass (radius 3 km) — butuh akses internet ke overpass-api.de |
+| Pencarian masjid | ✅ | Realtime (otomatis + GPS perangkat): proxy API AZANUSA ke OpenStreetMap Overpass, 3 mirror paralel + cache 10 menit, radius 3 km |
 | PWA | ✅ | Manifest, service worker, halaman offline, instalasi Android, cache jadwal offline |
 
 ## Sumber Data Jadwal (transparansi)

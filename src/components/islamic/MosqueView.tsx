@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Building2, Navigation, Loader2, ExternalLink, MapPin } from "lucide-react";
+import { Building2, Navigation, Loader2, ExternalLink, MapPin, LocateFixed } from "lucide-react";
 import { useAppStore } from "@/lib/store";
 import { EmptyState } from "./CalendarView";
 
@@ -13,65 +13,101 @@ interface MosqueItem {
   distanceKm: number;
 }
 
-const OVERPASS_URL = "https://overpass-api.de/api/interpreter";
+type Origin = "wilayah" | "gps";
 
 export function MosqueView() {
   const location = useAppStore((s) => s.location);
   const [items, setItems] = useState<MosqueItem[] | null>(null);
-  const [state, setState] = useState<"idle" | "loading" | "error" | "done">("idle");
+  const [state, setState] = useState<"idle" | "loading" | "gps" | "error" | "done">("idle");
   const [error, setError] = useState("");
+  const [origin, setOrigin] = useState<Origin>("wilayah");
   const abortRef = useRef<AbortController | null>(null);
+  const geoAbortRef = useRef<number | null>(null);
 
-  const search = useCallback(async () => {
+  const search = useCallback(
+    async (lat: number, lng: number, src: Origin) => {
+      setState(src === "gps" ? "gps" : "loading");
+      setError("");
+      abortRef.current?.abort();
+      const ac = new AbortController();
+      abortRef.current = ac;
+      try {
+        const res = await fetch(
+          `/api/mosques?lat=${lat}&lng=${lng}&radius=3000&limit=30`,
+          { signal: ac.signal }
+        );
+        const json = (await res.json()) as {
+          ok: boolean;
+          count?: number;
+          mosques?: MosqueItem[];
+          error?: string;
+        };
+        if (!json.ok) throw new Error(json.error ?? "Pencarian gagal");
+        setItems(json.mosques ?? []);
+        setOrigin(src);
+        setState("done");
+      } catch (e) {
+        if ((e as Error).name === "AbortError") return;
+        setState("error");
+        setError(
+          (e as Error).message ||
+            "Layanan data masjid (OpenStreetMap Overpass) sedang tidak dapat dijangkau. Coba lagi nanti."
+        );
+      }
+    },
+    []
+  );
+
+  // Realtime: cari otomatis saat halaman dibuka / wilayah berganti
+  const autoRef = useRef<string | null>(null);
+  useEffect(() => {
     if (!location) return;
-    setState("loading");
-    setError("");
-    abortRef.current?.abort();
-    const ac = new AbortController();
-    abortRef.current = ac;
-    const query = `[out:json][timeout:20];node(around:3000,${location.lat},${location.lng})["amenity"="place_of_worship"]["religion"="muslim"];out center 30;`;
-    try {
-      const res = await fetch(OVERPASS_URL, {
-        method: "POST",
-        body: "data=" + encodeURIComponent(query),
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        signal: ac.signal,
-      });
-      if (!res.ok) throw new Error(`Layanan peta merespons ${res.status}`);
-      const json = (await res.json()) as {
-        elements: { id: number; lat: number; lon: number; tags?: Record<string, string> }[];
-      };
-      const list: MosqueItem[] = json.elements
-        .map((e) => ({
-          id: String(e.id),
-          name: e.tags?.["name:en"] ?? e.tags?.name ?? "Masjid (nama tidak tercatat)",
-          lat: e.lat,
-          lng: e.lon,
-          distanceKm: Math.round(
-            2 * 6371 * Math.asin(
-              Math.sqrt(
-                Math.sin(((e.lat - location.lat) * Math.PI) / 360) ** 2 +
-                  Math.cos((location.lat * Math.PI) / 180) *
-                    Math.cos((e.lat * Math.PI) / 180) *
-                    Math.sin(((e.lon - location.lng) * Math.PI) / 360) ** 2
-              )
-            )
-          ),
-        }))
-        .sort((a, b) => a.distanceKm - b.distanceKm)
-        .slice(0, 20);
-      setItems(list);
-      setState(list.length ? "done" : "done");
-    } catch (e) {
-      if ((e as Error).name === "AbortError") return;
-      setState("error");
-      setError(
-        "Layanan data masjid (OpenStreetMap Overpass) sedang tidak dapat dijangkau. Coba lagi nanti."
-      );
-    }
-  }, [location]);
+    const key = `${location.code}`;
+    if (autoRef.current === key) return;
+    autoRef.current = key;
+    search(location.lat, location.lng, "wilayah");
+  }, [location, search]);
 
-  useEffect(() => () => abortRef.current?.abort(), []);
+  // Realtime GPS: cari di sekitar posisi pengguna sebenarnya
+  const searchGps = useCallback(() => {
+    if (!("geolocation" in navigator)) {
+      setState("error");
+      setError("Perangkat tidak mendukung Geolocation. Gunakan pencarian berdasarkan wilayah.");
+      return;
+    }
+    setState("gps");
+    setError("");
+    if (geoAbortRef.current !== null) navigator.geolocation.clearWatch(geoAbortRef.current);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        geoAbortRef.current = null;
+        search(pos.coords.latitude, pos.coords.longitude, "gps");
+      },
+      (err) => {
+        geoAbortRef.current = null;
+        // Gagal GPS (ditolak/tidak tersedia) — jatuh ke pusat wilayah yang dipilih
+        if (location) {
+          search(location.lat, location.lng, "wilayah");
+        } else {
+          setState("error");
+          setError(
+            err.code === err.PERMISSION_DENIED
+              ? "Izin lokasi ditolak. Aktifkan izin lokasi di browser untuk mencari masjid di sekitar Anda, atau cari berdasarkan wilayah."
+              : "Lokasi GPS tidak dapat ditentukan. Coba lagi atau cari berdasarkan wilayah."
+          );
+        }
+      },
+      { enableHighAccuracy: true, timeout: 12_000, maximumAge: 60_000 }
+    );
+  }, [location, search]);
+
+  useEffect(
+    () => () => {
+      abortRef.current?.abort();
+      if (geoAbortRef.current !== null) navigator.geolocation.clearWatch(geoAbortRef.current);
+    },
+    []
+  );
 
   if (!location) {
     return (
@@ -83,6 +119,8 @@ export function MosqueView() {
     );
   }
 
+  const busy = state === "loading" || state === "gps";
+
   return (
     <div className="space-y-3">
       <section className="animate-fade-up rounded-2xl bg-gradient-to-br from-teal-deep to-emerald-az p-5 text-white shadow-md">
@@ -91,22 +129,40 @@ export function MosqueView() {
           <div className="flex-1">
             <h2 className="text-lg font-extrabold">Pencarian Masjid</h2>
             <p className="text-xs text-white/75">
-              Masjid &amp; musala sekitar {location.name} (radius 3 km)
+              {state === "gps"
+                ? "Menentukan lokasi Anda…"
+                : origin === "gps"
+                  ? "Masjid & musala sekitar lokasi Anda (GPS) — radius 3 km"
+                  : `Masjid & musala sekitar ${location.name} (radius 3 km)`}
             </p>
           </div>
         </div>
-        <button
-          onClick={search}
-          disabled={state === "loading"}
-          className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-gold px-5 py-3 text-sm font-bold text-teal-deep shadow transition hover:brightness-105 disabled:opacity-60"
-        >
-          {state === "loading" ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <Navigation className="h-4 w-4" />
-          )}
-          {state === "loading" ? "Mencari masjid…" : items ? "Muat ulang" : "Cari masjid terdekat"}
-        </button>
+        <div className="mt-4 flex gap-2">
+          <button
+            onClick={searchGps}
+            disabled={busy}
+            className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-gold px-4 py-3 text-sm font-bold text-teal-deep shadow transition hover:brightness-105 disabled:opacity-60"
+          >
+            {state === "gps" ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <LocateFixed className="h-4 w-4" />
+            )}
+            {state === "gps" ? "Mendeteksi lokasi…" : "Lokasi saya (GPS)"}
+          </button>
+          <button
+            onClick={() => search(location.lat, location.lng, "wilayah")}
+            disabled={busy}
+            className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/30 px-4 py-3 text-sm font-semibold text-white transition hover:bg-white/10 disabled:opacity-60"
+          >
+            {state === "loading" ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Navigation className="h-4 w-4" />
+            )}
+            {origin === "gps" ? "Pusat wilayah" : items ? "Muat ulang" : "Cari masjid"}
+          </button>
+        </div>
       </section>
 
       {state === "error" && (
@@ -117,8 +173,9 @@ export function MosqueView() {
 
       {state === "idle" && (
         <p className="px-1 text-xs leading-relaxed text-muted-foreground">
-          Data masjid bersumber dari OpenStreetMap (kontribusi publik). Untuk wilayah
-          dengan data OSM terbatas, hasil bisa lebih sedikit dari yang sebenarnya.
+          Data masjid bersumber dari OpenStreetMap (kontribusi publik), diperbarui langsung
+          setiap kali Anda membuka halaman ini. Untuk wilayah dengan data OSM terbatas, hasil
+          bisa lebih sedikit dari yang sebenarnya.
         </p>
       )}
 
@@ -143,14 +200,16 @@ export function MosqueView() {
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-sm font-bold text-teal-deep">{m.name}</span>
                 <span className="block text-[11px] text-muted-foreground">
-                  ~{m.distanceKm < 1 ? `${Math.round(m.distanceKm * 1000)} m` : `${m.distanceKm} km`} dari pusat wilayah
+                  ~{m.distanceKm < 1 ? `${Math.round(m.distanceKm * 1000)} m` : `${m.distanceKm} km`}{" "}
+                  {origin === "gps" ? "dari Anda" : "dari pusat wilayah"}
                 </span>
               </span>
               <ExternalLink className="h-4 w-4 shrink-0 text-muted-foreground" />
             </a>
           ))}
           <p className="px-1 text-[10px] text-muted-foreground">
-            © Kontributor OpenStreetMap. Rute dibuka dengan aplikasi peta perangkat.
+            © Kontributor OpenStreetMap — data realtime via AZANUSA API. Rute dibuka dengan
+            aplikasi peta perangkat.
           </p>
         </section>
       )}
