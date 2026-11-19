@@ -18,18 +18,36 @@ export interface FirebaseClientConfig {
   appId: string;
 }
 
+/**
+ * Konfigurasi web Firebase AZANUSA — nilai publik (by-design, sama seperti di
+ * public/sw.js). NEXT_PUBLIC_FIREBASE_* tetap diutamakan bila diset saat build;
+ * fallback di bawah membuat push berfungsi otomatis di lingkungan mana pun
+ * (Vercel tanpa env, dev lokal, dsb.) tanpa langkah konfigurasi tambahan.
+ * Data sensitif server (FIREBASE_PRIVATE_KEY, CRON_SECRET) TIDAK pernah
+ * ikut di sini — hanya via env di sisi server.
+ */
+const FIREBASE_CLIENT_DEFAULTS = {
+  apiKey: "AIzaSyBlfeY4i5IpUnF9sj04EUrBdQ7krIltypg",
+  authDomain: "azanusa.firebaseapp.com",
+  projectId: "azanusa",
+  storageBucket: "azanusa.firebasestorage.app",
+  messagingSenderId: "455086348247",
+  appId: "1:455086348247:web:9d3396daa6fb7671fa9d92",
+} as const;
+
 export function readClientConfig(): FirebaseClientConfig | null {
-  const apiKey = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
-  const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
-  const appId = process.env.NEXT_PUBLIC_FIREBASE_APP_ID;
+  const apiKey = process.env.NEXT_PUBLIC_FIREBASE_API_KEY ?? FIREBASE_CLIENT_DEFAULTS.apiKey;
+  const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID ?? FIREBASE_CLIENT_DEFAULTS.projectId;
+  const appId = process.env.NEXT_PUBLIC_FIREBASE_APP_ID ?? FIREBASE_CLIENT_DEFAULTS.appId;
   if (!apiKey || !projectId || !appId) return null;
   return {
     apiKey,
     projectId,
     appId,
-    authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN ?? `${projectId}.firebaseapp.com`,
-    storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-    messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+    authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN ?? FIREBASE_CLIENT_DEFAULTS.authDomain,
+    storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET ?? FIREBASE_CLIENT_DEFAULTS.storageBucket,
+    messagingSenderId:
+      process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID ?? FIREBASE_CLIENT_DEFAULTS.messagingSenderId,
   };
 }
 

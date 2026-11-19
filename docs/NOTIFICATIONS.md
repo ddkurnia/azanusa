@@ -90,12 +90,34 @@ Settings → Environment Variables.
 
 Kemudian pasang cron eksternal (pilih salah satu):
 
-- **cron-job.org** (gratis): URL `https://DOMAIN/api/notifications/dispatch?secret=XXX`,
-  interval 1–5 menit.
+- **GitHub Actions (bawaan repo, gratis)** — workflow
+  `.github/workflows/push-dispatch.yml` sudah ada dan menembak endpoint tiap
+  5 menit. Isi dua secret di GitHub → Settings → Secrets and variables →
+  Actions: `PROD_URL` (domain produksi) dan `CRON_SECRET`. Bila secret belum
+  diisi, workflow otomatis dilewati (tidak gagal).
+- **cron-job.org** (gratis, presisi 1 menit): URL
+  `https://DOMAIN/api/notifications/dispatch?secret=XXX`, interval 1–5 menit.
 - **Vercel Cron**: aktifkan di `vercel.json` (paket Hobby terbatas 1×/hari —
-  untuk pengingat salat gunakan cron-job.org).
+  untuk pengingat salat gunakan opsi lain).
 - **Cloud Functions v2 scheduled** (butuh Blaze): alternatif bila ingin tanpa
   server eksternal.
+
+### Produksi realtime — ringkasan langkah
+
+1. Deploy ke hosting (mis. Vercel). Set env server: `FIREBASE_PROJECT_ID`,
+   `FIREBASE_CLIENT_EMAIL`, `FIREBASE_PRIVATE_KEY`, `CRON_SECRET` — kunci
+   service account diambil sendiri dari Console Firebase → Project settings →
+   Service accounts → Generate new private key.
+2. Konfigurasi web client (`NEXT_PUBLIC_FIREBASE_*`) punya fallback bawaan di
+   `src/lib/firebase/client.ts` — push aktif bahkan tanpa env itu; env tetap
+   dipakai bila diisi.
+3. Aktifkan cron pengirim (GitHub Actions di atas, atau cron-job.org).
+4. Verifikasi: buka aplikasi di ponsel → Pengaturan → nyalakan **Push
+   notifikasi** → "Push aktif — perangkat terdaftar di cloud AZANUSA." →
+   cek endpoint dispatch menjawab `checked >= 1`.
+
+Dispatcher mengirim dalam jendela 5 menit sejak waktu salat (dedup per hari),
+jadi cron 1–5 menit menghasilkan pengingat tepat waktu saat aplikasi ditutup.
 
 ## Uji cepat
 

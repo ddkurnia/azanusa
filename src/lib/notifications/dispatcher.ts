@@ -116,7 +116,7 @@ export async function dispatchPrayerPushes(): Promise<DispatchSummary> {
             tag: `azanusa-${bKey}`,
             silent,
           });
-          applyResult(summary, d.id, bKey, key, r, newMarks);
+          applyResult(summary, d.id, bKey, key, region.code, r, newMarks);
           if (r === "dead") break;
         }
       }
@@ -130,7 +130,7 @@ export async function dispatchPrayerPushes(): Promise<DispatchSummary> {
           tag: `azanusa-${mKey}`,
           silent,
         });
-        applyResult(summary, d.id, mKey, key, r, newMarks);
+        applyResult(summary, d.id, mKey, key, region.code, r, newMarks);
         if (r === "dead") break;
       }
     }
@@ -159,13 +159,14 @@ function applyResult(
   uid: string,
   markKey: string,
   prayer: string,
+  region: string,
   result: "sent" | "dead" | "error",
   newMarks: Record<string, string>
 ) {
   if (result === "sent") {
     summary.sent++;
     newMarks[markKey] = new Date().toISOString();
-    summary.details.push({ uid, kind: markKey.split(":")[2], prayer, region: "" });
+    summary.details.push({ uid, kind: markKey.split(":")[2], prayer, region });
   } else if (result === "dead") {
     summary.deadTokens++;
     summary.errors.push(`token mati: ${uid}`);
