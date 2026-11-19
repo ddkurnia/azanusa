@@ -69,6 +69,13 @@ prayerSchedules/{regionCode_date} # cache jadwal (publik baca, tulis server saja
 - ✅ Uji E2E lolos penuh: izin → anonymous auth → token FCM → Firestore →
   kirim FCM asli → notifikasi diterima perangkat; endpoint dispatch
   menjawab `ok:true` (lihat `scripts/e2e_push_test.mjs`).
+- ✅ Produksi terpasang (19 Nov 2026): https://azanusa.vercel.app (Vercel,
+  team kedai-media). Env server (`FIREBASE_*`, `CRON_SECRET`) diset via API
+  ke environment production/preview/development (`scripts/vercel_env_push.py`).
+  Verifikasi produksi: `/api/notifications/dispatch?secret=…` dan
+  `/api/notifications/tick` menjawab `checked:2, sent:0` (2 perangkat
+  terdaftar, tidak ada salat di jendela 5 menit saat uji); tanpa secret
+  ditolak `Secret tidak valid`.
 - ⏳ VAPID key belum diisi (opsional): SDK memakai kunci bawaan dan getToken
   terbukti berfungsi. Untuk produksi, isi di Console → Cloud Messaging →
   Web Push certificates lalu set `NEXT_PUBLIC_FIREBASE_VAPID_KEY`.
@@ -91,10 +98,11 @@ Settings → Environment Variables.
 Kemudian pasang cron eksternal (pilih salah satu):
 
 - **GitHub Actions (gratis)** — salin file `.github/workflows/push-dispatch.yml`
-  ke repo (di sandbox sudah disiapkan; push-nya butuh token ber-scope
-  `workflow`), lalu isi dua secret di GitHub → Settings → Secrets and
-  variables → Actions: `PROD_URL` (domain produksi) dan `CRON_SECRET`.
-  Bila secret belum diisi, workflow otomatis dilewati (tidak gagal).
+  ke repo (file sudah disiapkan di sandbox; push-nya butuh token ber-scope
+  `workflow`). Dua repo secret **sudah terpasang** via API
+  (`scripts/gh_secrets_set.py`, 19 Nov 2026): `PROD_URL`
+  (https://azanusa.vercel.app) dan `CRON_SECRET` — begitu file workflow masuk
+  repo, cron otomatis jalan tiap 5 menit tanpa langkah tambahan.
 - **cron-job.org** (gratis, presisi 1 menit): URL
   `https://DOMAIN/api/notifications/dispatch?secret=XXX`, interval 1–5 menit.
 - **Vercel Cron**: aktifkan di `vercel.json` (paket Hobby terbatas 1×/hari —
