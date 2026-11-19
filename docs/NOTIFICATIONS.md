@@ -90,11 +90,11 @@ Settings → Environment Variables.
 
 Kemudian pasang cron eksternal (pilih salah satu):
 
-- **GitHub Actions (bawaan repo, gratis)** — workflow
-  `.github/workflows/push-dispatch.yml` sudah ada dan menembak endpoint tiap
-  5 menit. Isi dua secret di GitHub → Settings → Secrets and variables →
-  Actions: `PROD_URL` (domain produksi) dan `CRON_SECRET`. Bila secret belum
-  diisi, workflow otomatis dilewati (tidak gagal).
+- **GitHub Actions (gratis)** — salin file `.github/workflows/push-dispatch.yml`
+  ke repo (di sandbox sudah disiapkan; push-nya butuh token ber-scope
+  `workflow`), lalu isi dua secret di GitHub → Settings → Secrets and
+  variables → Actions: `PROD_URL` (domain produksi) dan `CRON_SECRET`.
+  Bila secret belum diisi, workflow otomatis dilewati (tidak gagal).
 - **cron-job.org** (gratis, presisi 1 menit): URL
   `https://DOMAIN/api/notifications/dispatch?secret=XXX`, interval 1–5 menit.
 - **Vercel Cron**: aktifkan di `vercel.json` (paket Hobby terbatas 1×/hari —
