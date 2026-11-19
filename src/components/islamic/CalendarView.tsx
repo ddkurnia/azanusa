@@ -251,7 +251,7 @@ export function CalendarView() {
               : dates.length <= 4
                 ? dates.map((d) => `tgl ${d.hijriDay}`).join(", ")
                 : `tgl ${dates[0].hijriDay}–${dates[dates.length - 1].hijriDay}`;
-            const weekdayInfo = !isWholeMonth
+            const weekdayInfo = !isWholeMonth && dates.length === 1
               ? ` • ${WEEKDAY_LONG[dates[0].weekday]}`
               : "";
             return (
