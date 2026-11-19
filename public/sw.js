@@ -3,8 +3,11 @@
  * - Precache: halaman utama, manifest, ikon, halaman offline
  * - Runtime: cache-first untuk aset statis; network-first untuk /api/prayer-times
  *   (fallback cache terakhir agar jadwal tetap tampil offline); navigasi → offline.html
+ * - FCM: handler pesan push Firebase Cloud Messaging (dipakai pengingat saat
+ *   aplikasi ditutup). importScripts dibungkus try/catch agar kegagalan jaringan
+ *   saat pemasangan tidak merusak caching offline.
  */
-const VERSION = "azanusa-v1.2.0";
+const VERSION = "azanusa-v1.3.0";
 const PRECACHE = [
   "/",
   "/manifest.webmanifest",
@@ -21,6 +24,45 @@ const PRECACHE = [
   "/audio/azan.mp3",
   "/offline.html",
 ];
+
+/* ==================== Firebase Cloud Messaging (push) ==================== */
+let fcmMessaging = null;
+try {
+  importScripts(
+    "https://www.gstatic.com/firebasejs/11.6.0/firebase-app-compat.js",
+    "https://www.gstatic.com/firebasejs/11.6.0/firebase-messaging-compat.js"
+  );
+  firebase.initializeApp({
+    apiKey: "AIzaSyBlfeY4i5IpUnF9sj04EUrBdQ7krIltypg",
+    authDomain: "azanusa.firebaseapp.com",
+    projectId: "azanusa",
+    storageBucket: "azanusa.firebasestorage.app",
+    messagingSenderId: "455086348247",
+    appId: "1:455086348247:web:9d3396daa6fb7671fa9d92",
+  });
+  fcmMessaging = firebase.messaging();
+  fcmMessaging.onBackgroundMessage((payload) => {
+    const d = payload.data || {};
+    const n = payload.notification || {};
+    const title = d.title || n.title || "AZANUSA";
+    const body = d.body || n.body || "Pengingat waktu salat";
+    const tag = d.tag || "azanusa-push";
+    self.registration.showNotification(title, {
+      body,
+      tag,
+      icon: "/icons/icon-192.png",
+      badge: "/icons/icon-192.png",
+      lang: "id",
+      dir: "ltr",
+      vibrate: d.silent === "1" ? undefined : [200, 100, 200],
+      silent: d.silent === "1",
+      data: { url: "/" },
+    });
+  });
+} catch (e) {
+  // Firebase SDK tidak dapat dimuat (mis. offline saat pemasangan pertama) —
+  // caching offline tetap berjalan; push diaktifkan lagi saat online.
+}
 
 self.addEventListener("install", (event) => {
   event.waitUntil(

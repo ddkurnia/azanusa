@@ -19,6 +19,9 @@ interface AppState extends AppSettings {
   setAllNotifications: (mode: AppSettings["notifications"][PrayerKey]["mode"]) => void;
   setVolume: (v: number) => void;
   setAudioUnlocked: (v: boolean) => void;
+  /** Push FCM aktif untuk perangkat ini (token tersimpan di Firestore) */
+  pushEnabled: boolean;
+  setPushEnabled: (v: boolean) => void;
   resetAll: () => void;
 }
 
@@ -30,6 +33,7 @@ export const useAppStore = create<AppState>()(
       notifications: DEFAULT_NOTIFICATIONS,
       volume: 0.8,
       audioUnlocked: false,
+      pushEnabled: false,
       setLocation: (region) => set({ location: region }),
       setDataSource: (v) => set({ dataSource: v }),
       setNotification: (key, patch) =>
@@ -44,6 +48,7 @@ export const useAppStore = create<AppState>()(
         })),
       setVolume: (v) => set({ volume: Math.min(1, Math.max(0, v)) }),
       setAudioUnlocked: (v) => set({ audioUnlocked: v }),
+      setPushEnabled: (v) => set({ pushEnabled: v }),
       resetAll: () =>
         set({
           location: null,
@@ -51,6 +56,7 @@ export const useAppStore = create<AppState>()(
           notifications: DEFAULT_NOTIFICATIONS,
           volume: 0.8,
           audioUnlocked: false,
+          pushEnabled: false,
         }),
     }),
     {

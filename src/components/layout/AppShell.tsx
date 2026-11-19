@@ -30,6 +30,7 @@ import { AppHeader } from "@/components/layout/AppHeader";
 import { BottomNavigation } from "@/components/layout/BottomNavigation";
 import { SplashGate } from "@/components/layout/SplashGate";
 import { NotificationTicker } from "@/components/notifications/NotificationTicker";
+import { PushForeground } from "@/components/notifications/PushForeground";
 
 export function AppShell() {
   const [view, navigate] = useHashRoute();
@@ -66,6 +67,7 @@ export function AppShell() {
       <BottomNavigation view={view} navigate={navigate} />
       <LocationSheet open={locOpen} onOpenChange={setLocOpen} />
       {location && <NotificationTicker />}
+      <PushForeground />
 
       {location ? (
         <div className="sr-only" aria-live="polite">

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import {
   BellRing, BellOff, Volume2, Database, Download, Info,
-  ShieldAlert, Smartphone, CheckCircle2, AlertTriangle,
+  ShieldAlert, Smartphone, CheckCircle2, AlertTriangle, CloudUpload,
 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Slider } from "@/components/ui/slider";
@@ -11,6 +11,11 @@ import { useAppStore } from "@/lib/store";
 import { useNotifications } from "@/hooks/use-notifications";
 import { useInstallPrompt } from "@/hooks/use-install-prompt";
 import { azanPlayer } from "@/lib/audio/azan";
+import {
+  enablePushNotifications,
+  disablePushNotifications,
+  isPushConfigured,
+} from "@/lib/notifications/push";
 import { PRAYER_KEYS, PRAYER_NAMES } from "@/types";
 import type { NotifyMode, ProviderStatus } from "@/types";
 import { EmptyState } from "@/components/islamic/CalendarView";
@@ -24,13 +29,16 @@ const MODE_OPTIONS: { value: NotifyMode; label: string }[] = [
 
 export function SettingsView() {
   const {
-    location, dataSource, notifications, volume, audioUnlocked,
-    setDataSource, setNotification, setAllNotifications, setVolume, setAudioUnlocked,
+    location, dataSource, notifications, volume, audioUnlocked, pushEnabled,
+    setDataSource, setNotification, setAllNotifications, setVolume, setAudioUnlocked, setPushEnabled,
   } = useAppStore();
   const { permission, requestPermission } = useNotifications();
   const { available, installed, promptInstall } = useInstallPrompt();
   const [providers, setProviders] = useState<ProviderStatus | null>(null);
   const [unlocking, setUnlocking] = useState(false);
+  const [pushBusy, setPushBusy] = useState(false);
+  const [pushMsg, setPushMsg] = useState<{ tone: "ok" | "err"; text: string } | null>(null);
+  const pushConfigured = isPushConfigured();
 
   useEffect(() => {
     fetch("/api/config")
@@ -50,6 +58,55 @@ export function SettingsView() {
   }
 
   const notifSupported = permission !== "unsupported";
+
+  async function handlePushToggle(v: boolean) {
+    if (!location) return;
+    setPushBusy(true);
+    setPushMsg(null);
+    try {
+      if (v) {
+        const res = await enablePushNotifications(location, notifications);
+        if (res.state === "ok") {
+          setPushEnabled(true);
+          setPushMsg({ tone: "ok", text: "Push aktif — perangkat terdaftar di cloud AZANUSA." });
+        } else {
+          setPushEnabled(false);
+          setPushMsg({ tone: "err", text: res.detail });
+        }
+      } else {
+        await disablePushNotifications();
+        setPushEnabled(false);
+        setPushMsg({ tone: "ok", text: "Push dimatikan. Pengingat tetap berbunyi selama aplikasi terbuka." });
+      }
+    } finally {
+      setPushBusy(false);
+    }
+  }
+
+  async function handleTestNotification() {
+    if (!("Notification" in window)) return;
+    try {
+      const reg = await navigator.serviceWorker?.getRegistration?.();
+      const title = "Notifikasi uji AZANUSA";
+      const body = location
+        ? `Contoh pengingat untuk ${location.name}, ${location.prov}.`
+        : "Contoh pengingat AZANUSA.";
+      if (reg) {
+        await reg.showNotification(title, {
+          body,
+          tag: "azanusa-test",
+          icon: "/icons/icon-192.png",
+          badge: "/icons/icon-192.png",
+          lang: "id",
+        });
+      } else {
+        const n = new Notification(title, { body });
+        n.onclick = () => window.focus();
+      }
+    } catch {
+      // izin dicabut — abaikan
+    }
+  }
 
   return (
     <div className="space-y-4">
@@ -89,6 +146,49 @@ export function SettingsView() {
             Izin notifikasi aktif
           </p>
         )}
+
+        {/* Push via Firebase Cloud Messaging */}
+        <div className="mt-4 rounded-xl border border-primary/30 bg-emerald-soft p-3">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-start gap-2">
+              <CloudUpload className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+              <div>
+                <p className="text-sm font-bold text-teal-deep">Push notifikasi (Firebase)</p>
+                <p className="text-[11px] leading-snug text-muted-foreground">
+                  Pengingat tetap terkirim walau aplikasi sudah ditutup
+                </p>
+              </div>
+            </div>
+            <Switch
+              checked={pushEnabled}
+              onCheckedChange={handlePushToggle}
+              disabled={pushBusy || !notifSupported}
+              aria-label="Aktifkan push notifikasi Firebase"
+            />
+          </div>
+          {!pushConfigured && (
+            <p className="mt-2 text-[11px] leading-relaxed text-amber-800">
+              Konfigurasi Firebase belum terisi di server — push belum tersedia.
+            </p>
+          )}
+          {pushMsg && (
+            <p
+              className={`mt-2 text-[11px] leading-relaxed ${
+                pushMsg.tone === "ok" ? "text-primary" : "text-amber-800"
+              }`}
+            >
+              {pushMsg.text}
+            </p>
+          )}
+          {permission === "granted" && (
+            <button
+              onClick={handleTestNotification}
+              className="mt-3 rounded-lg border border-primary/40 px-3.5 py-2 text-xs font-bold text-primary"
+            >
+              Kirim notifikasi uji
+            </button>
+          )}
+        </div>
 
         <div className="mt-4 space-y-3">
           <div className="flex items-center justify-between rounded-xl border border-border px-3 py-2.5">
@@ -142,11 +242,11 @@ export function SettingsView() {
         <p className="mt-3 flex items-start gap-2 rounded-xl bg-muted p-3 text-[11px] leading-relaxed text-muted-foreground">
           <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-gold" />
           <span>
-            <strong>Batasan platform (penting):</strong> peramban Android tidak menjamin
-            notifikasi terkirim saat browser ditutup atau perangkat tidur lama. Pengingat
-            paling andal saat aplikasi terbuka/terpasang dan tab aktif. Untuk azan yang
-            selalu berbunyi di seluruh kondisi perangkat, diperlukan aplikasi Android
-            native (dikonfigurasi pada pengembangan lanjutan AZANUSA).
+            <strong>Cara kerja pengingat:</strong> saat aplikasi terbuka, AZANUSA menampilkan
+            pengingat langsung dari perangkat (dengan azan Makkah bila dipilih). Dengan
+            <strong> push Firebase</strong> aktif, pengingat tetap terkirim saat aplikasi ditutup —
+            selama server pengirim AZANUSA berjalan dan peramban mendukung web push
+            (Android Chrome, atau PWA terpasang di iOS 16.4+).
           </span>
         </p>
       </section>

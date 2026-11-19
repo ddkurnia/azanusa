@@ -6,6 +6,8 @@
  */
 import { initializeApp, getApps, getApp, type FirebaseApp } from "firebase/app";
 import { getFirestore, type Firestore } from "firebase/firestore";
+import { getAuth, signInAnonymously, type Auth } from "firebase/auth";
+import { getMessaging, isSupported, type Messaging } from "firebase/messaging";
 
 export interface FirebaseClientConfig {
   apiKey: string;
@@ -52,5 +54,57 @@ export function getFirebaseDb(): Firestore | null {
     return getFirestore(app);
   } catch {
     return null;
+  }
+}
+
+/** Auth client (untuk anonymous auth — identitas perangkat di Firestore rules) */
+export function getFirebaseAuth(): Auth | null {
+  const app = getFirebaseApp();
+  if (!app) return null;
+  try {
+    return getAuth(app);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Messaging client untuk FCM (Firebase Cloud Messaging).
+ * Mengembalikan null bila konfigurasi kosong atau peramban tidak mendukung
+ * web push (mis. browser in-app tanpa service worker).
+ */
+export async function getFirebaseMessaging(): Promise<Messaging | null> {
+  const app = getFirebaseApp();
+  if (!app) return null;
+  if (typeof window === "undefined") return null;
+  if (!("serviceWorker" in navigator)) return null;
+  try {
+    if (!(await isSupported())) return null;
+    return getMessaging(app);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Pastikan ada identitas anonymous (Firebase Authentication).
+ * Dipakai agar Firestore rules users/{uid} tetap ketat: dokumen token push
+ * hanya dapat dibaca/ditulis oleh perangkat pemiliknya.
+ * Mengembalikan uid, atau error berkode auth/* bila provider Anonymous
+ * belum diaktifkan di console Firebase.
+ */
+export async function ensureAnonymousUser(): Promise<string> {
+  const auth = getFirebaseAuth();
+  if (!auth) throw new Error("auth/unavailable");
+  if (auth.currentUser) return auth.currentUser.uid;
+  try {
+    const cred = await signInAnonymously(auth);
+    return cred.user.uid;
+  } catch (e) {
+    const code = (e as { code?: string }).code ?? "";
+    if (code === "auth/operation-not-allowed" || code === "auth/admin-restricted-operation") {
+      throw new Error("auth/anonymous-disabled");
+    }
+    throw e;
   }
 }

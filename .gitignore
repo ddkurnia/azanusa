@@ -66,3 +66,4 @@ server.log
 /.z-ai-config
 /agent-ctx/
 tool-results/
+/scripts/fb-state/
