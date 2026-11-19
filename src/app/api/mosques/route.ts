@@ -2,9 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   MosqueItem,
   OVERPASS_SERVER_MIRRORS,
+  PHOTON_BASE,
+  PHOTON_TERMS,
   buildOverpassQuery,
   overpassToMosques,
+  photonBbox,
+  photonToMosques,
   type OverpassElement,
+  type PhotonFeature,
 } from "@/lib/mosques";
 
 /**
@@ -15,10 +20,12 @@ import {
  * kerap dibatasi 429/406). Route ini dipakai bila panggilan langsung gagal.
  *
  * Ketahanan:
- *  - Round-robin bergilir antar 5 mirror; maks 4 percobaan per panggilan,
- *    timeout 4 detik per mirror (total terkendali di bawah maxDuration).
- *  - Header User-Agent/Accept eksplisit — sebagian mirror menolak (406)
- *    klien tanpa identitas.
+ *  - LAPIS 1 Overpass: round-robin bergilir antar 5 mirror; maks 4 percobaan
+ *    per panggilan, timeout 4 detik per mirror (total terkendali di bawah
+ *    maxDuration). Header User-Agent/Accept eksplisit.
+ *  - LAPIS 2 Photon (Komoot): saat semua mirror Overpass gagal — mirror
+ *    Overpass umumnya menolak IP datacenter (429/406/502) — pencarian nama
+ *    "masjid/musala/…" dalam bbox; Photon ramah datacenter.
  *  - Kueri luas (semua amenity=place_of_worship + building=mosque) dengan
  *    penyaringan indikasi muslim di JS — tag religion sering hilang pada
  *    data masjid Indonesia.
@@ -111,6 +118,41 @@ async function queryOverpass(
   throw new Error(`Semua mirror Overpass gagal (${errors.join(", ")})`);
 }
 
+/** LAPIS 2 — Photon: pencarian nama masjid/musala per kata kunci dalam bbox. */
+async function queryPhoton(lat: number, lng: number, radius: number, limit: number): Promise<MosquesPayload> {
+  const bbox = photonBbox(lat, lng, radius);
+  const requests = PHOTON_TERMS.map((term) =>
+    fetch(`${PHOTON_BASE}?q=${encodeURIComponent(term)}&lat=${lat}&lon=${lng}&bbox=${encodeURIComponent(bbox)}&limit=50`, {
+      signal: AbortSignal.timeout(8_000),
+      headers: { "User-Agent": "AZANUSA/1.0 (+https://azanusa.vercel.app)" },
+      cache: "no-store",
+    })
+      .then((res) => (res.ok ? (res.json() as Promise<{ features?: PhotonFeature[] }>) : null))
+      .catch(() => null)
+  );
+  const results = await Promise.all(requests);
+  const features = results.flatMap((r) => r?.features ?? []);
+  const mosques = photonToMosques(features, lat, lng, limit);
+  return { ok: true, count: mosques.length, via: "photon-komoot", radius, mosques };
+}
+
+/** Overpass dulu, bila gagal Photon. */
+async function queryMosques(lat: number, lng: number, radius: number, limit: number): Promise<MosquesPayload> {
+  let overpassErr: Error | null = null;
+  try {
+    return await queryOverpass(lat, lng, radius, limit);
+  } catch (e) {
+    overpassErr = e as Error;
+  }
+  try {
+    return await queryPhoton(lat, lng, radius, limit);
+  } catch (e) {
+    throw new Error(
+      `Overpass: ${overpassErr?.message ?? "gagal"}; Photon: ${(e as Error).message}`
+    );
+  }
+}
+
 export async function GET(req: NextRequest) {
   const p = req.nextUrl.searchParams;
   const lat = Number(p.get("lat"));
@@ -133,7 +175,7 @@ export async function GET(req: NextRequest) {
 
   let flight = IN_FLIGHT.get(cacheKey);
   if (!flight) {
-    flight = queryOverpass(lat, lng, radius, limit)
+    flight = queryMosques(lat, lng, radius, limit)
       .then((payload) => {
         MEMORY_CACHE.set(cacheKey, { data: payload, expiresAt: Date.now() + SUCCESS_TTL_MS });
         return payload;

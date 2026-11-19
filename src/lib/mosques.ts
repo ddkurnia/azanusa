@@ -127,3 +127,73 @@ export function overpassToMosques(
     .sort((a, b) => a.distanceKm - b.distanceKm)
     .slice(0, limit);
 }
+
+/* ---------------------------------- Photon ----------------------------------
+ * Photon (Komoot) adalah layanan geokoding OSM yang ramah IP datacenter dan
+ * browser (CORS aktif) — dijadikan LAPIS CADANGAN ketika mirror Overpass
+ * gagal/tidak dapat dijangkau. Pencarian dilakukan per kata kunci nama
+ * ("masjid", "musala", …) dalam bbox di sekitar koordinat, karena Photon
+ * tidak menyediakan pencarian radius per tag.
+ * --------------------------------------------------------------------------- */
+
+export const PHOTON_BASE = "https://photon.komoot.io/api";
+
+export const PHOTON_TERMS = ["masjid", "mesjid", "musala", "musholla", "surau"] as const;
+
+/** bbox Photon "minLon,minLat,maxLon,maxLat" untuk radius meter di sekitar titik. */
+export function photonBbox(lat: number, lng: number, radiusM: number): string {
+  const dLat = radiusM / 111_000;
+  const dLng = radiusM / (111_000 * Math.max(0.1, Math.cos((lat * Math.PI) / 180)));
+  const minLat = Math.max(-90, lat - dLat);
+  const maxLat = Math.min(90, lat + dLat);
+  let minLng = lng - dLng;
+  let maxLng = lng + dLng;
+  if (minLng < -180) minLng = -180;
+  if (maxLng > 180) maxLng = 180;
+  return `${minLng.toFixed(5)},${minLat.toFixed(5)},${maxLng.toFixed(5)},${maxLat.toFixed(5)}`;
+}
+
+export interface PhotonFeature {
+  geometry?: { coordinates?: [number, number] };
+  properties?: {
+    name?: string;
+    osm_id?: number;
+    osm_type?: string;
+    osm_key?: string;
+    osm_value?: string;
+    [k: string]: unknown;
+  };
+}
+
+/** Ubah hasil Photon menjadi daftar masjid (hanya amenity=place_of_worship). */
+export function photonToMosques(
+  features: PhotonFeature[],
+  lat: number,
+  lng: number,
+  limit: number
+): MosqueItem[] {
+  const seen = new Set<string>();
+  const out: MosqueItem[] = [];
+  for (const f of features) {
+    const p = f.properties ?? {};
+    const c = f.geometry?.coordinates;
+    const name = p.name ?? "";
+    if (!c || c.length < 2 || !Number.isFinite(c[0]) || !Number.isFinite(c[1])) continue;
+    // Hanya tempat ibadah / bangunan masjid — bukan jalan/kampung bernama "Masjid"
+    const isPow = p.osm_key === "amenity" && p.osm_value === "place_of_worship";
+    const isMosqueBuilding = p.osm_key === "building" && p.osm_value === "mosque";
+    if (!isPow && !isMosqueBuilding) continue;
+    if (!name) continue; // tanpa nama tidak bisa dipastikan masjid via Photon
+    const key = p.osm_id ? `${p.osm_type ?? "n"}/${p.osm_id}` : `${name}|${c[1].toFixed(4)}|${c[0].toFixed(4)}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push({
+      id: key,
+      name,
+      lat: c[1],
+      lng: c[0],
+      distanceKm: haversineKm(lat, lng, c[1], c[0]),
+    });
+  }
+  return out.sort((a, b) => a.distanceKm - b.distanceKm).slice(0, limit);
+}

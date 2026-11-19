@@ -6,24 +6,31 @@ import { useAppStore } from "@/lib/store";
 import {
   MosqueItem,
   OVERPASS_CLIENT_MIRRORS,
+  PHOTON_BASE,
+  PHOTON_TERMS,
   buildOverpassQuery,
   overpassToMosques,
+  photonBbox,
+  photonToMosques,
   type OverpassElement,
+  type PhotonFeature,
 } from "@/lib/mosques";
 import { EmptyState } from "./CalendarView";
 
 type Origin = "wilayah" | "gps";
-type Source = "device" | "proxy";
+type Source = "device" | "photon" | "proxy";
 
 /**
- * Pencarian masjid realtime dari OpenStreetMap (Overpass).
+ * Pencarian masjid realtime dari OpenStreetMap.
  *
  * Strategi berlapis agar tahan gangguan:
  *  1. Langsung dari perangkat: cascade mirror Overpass satu per satu
  *     (sopan, tanpa kueri paralel identik), timeout 6 dtk per mirror.
- *  2. Pencadang: proxy server AZANUSA /api/mosques (round-robin 5 mirror
- *     + cache, dengan pesan error eksplisit).
- *  3. Radius diperluas otomatis 3 km → 10 km bila hasil kosong (data OSM
+ *  2. Langsung dari perangkat via Photon (Komoot, CORS aktif): bila semua
+ *     mirror Overpass gagal dari jaringan pengguna.
+ *  3. Pencadang terakhir: proxy server AZANUSA /api/mosques
+ *     (Overpass round-robin + Photon, cache, pesan error eksplisit).
+ *  4. Radius diperluas otomatis 3 km → 10 km bila hasil kosong (data OSM
  *     di banyak wilayah Indonesia masih terbatas).
  */
 
@@ -56,6 +63,23 @@ async function fetchFromDevice(lat: number, lng: number, radius: number): Promis
     }
   }
   throw new Error(errors.join("; ") || "Semua mirror Overpass tidak dapat dijangkau");
+}
+
+/** Lapis 2 dari perangkat — Photon (Komoot): pencarian nama dalam bbox. */
+async function fetchPhotonFromDevice(lat: number, lng: number, radius: number): Promise<MosqueItem[]> {
+  const bbox = photonBbox(lat, lng, radius);
+  const requests = PHOTON_TERMS.map((term) =>
+    fetch(`${PHOTON_BASE}?q=${encodeURIComponent(term)}&lat=${lat}&lon=${lng}&bbox=${encodeURIComponent(bbox)}&limit=50`, {
+      signal: AbortSignal.timeout(8_000),
+    })
+      .then((res) => (res.ok ? (res.json() as Promise<{ features?: PhotonFeature[] }>) : null))
+      .catch(() => null)
+  );
+  const results = await Promise.all(requests);
+  const features = results.flatMap((r) => r?.features ?? []);
+  const mosques = photonToMosques(features, lat, lng, 30);
+  if (features.length === 0) throw new Error("Photon tidak dapat dijangkau dari perangkat");
+  return mosques;
 }
 
 export function MosqueView() {
@@ -99,16 +123,22 @@ export function MosqueView() {
         setRadius(r);
         if (r === 10_000) setRadiusNote("Tidak ada masjid tercatat pada radius 3 km — memperluas ke 10 km…");
 
-        // 1) Utama: Overpass langsung dari perangkat
+        // 1) Utama: Overpass langsung dari perangkat → 2) Photon → 3) proxy
         let list: MosqueItem[];
         let via: Source = "device";
         try {
           list = await fetchFromDevice(lat, lng, r);
         } catch (directErr) {
           if ((directErr as Error).name === "AbortError" || ac.signal.aborted) return;
-          // 2) Pencadang: proxy server AZANUSA
-          list = await fetchFromServer(lat, lng, r);
-          via = "proxy";
+          try {
+            list = await fetchPhotonFromDevice(lat, lng, r);
+            via = "photon";
+          } catch (photonErr) {
+            if ((photonErr as Error).name === "AbortError" || ac.signal.aborted) return;
+            // 3) Pencadang terakhir: proxy server AZANUSA
+            list = await fetchFromServer(lat, lng, r);
+            via = "proxy";
+          }
         }
         if (ac.signal.aborted) return;
 
@@ -296,8 +326,12 @@ export function MosqueView() {
           ))}
           <p className="px-1 text-[10px] text-muted-foreground">
             © Kontributor OpenStreetMap — data realtime{" "}
-            {source === "proxy" ? "melalui proxy server AZANUSA" : "langsung dari perangkat Anda"}. Rute
-            dibuka dengan aplikasi peta perangkat.
+            {source === "proxy"
+              ? "melalui proxy server AZANUSA"
+              : source === "photon"
+                ? "langsung dari perangkat (layanan Photon)"
+                : "langsung dari perangkat (Overpass)"}
+            . Rute dibuka dengan aplikasi peta perangkat.
           </p>
         </section>
       )}
