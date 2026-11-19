@@ -208,17 +208,18 @@
   border: 1px solid rgba(124, 205, 191, 0.26);
 }
 
-/* Kartu overlay di atas gambar masjid (hero): efek kaca transparan premium.
-   Dark teal 60% + blur 8px — kubah, menara, dan bangunan masjid tetap
-   terlihat jelas di belakang kartu; teks putih tetap kontras tinggi. */
+/* Kartu overlay di atas gambar masjid (hero): CLEAR GLASSMORPHISM.
+   Lapisan hijau emerald sangat tipis (22%) + blur rendah 3px — kaca bening,
+   bukan frosted glass: kubah, menara, dan langit senja tetap terlihat jelas
+   melalui kartu, teks putih tetap tajam di atasnya. */
 .panel-teal-glass {
-  background: rgba(0, 65, 58, 0.60);
-  border: 1px solid rgba(124, 205, 191, 0.38);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  background: rgba(0, 65, 58, 0.22);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.10),
-    0 10px 24px rgba(0, 20, 17, 0.28);
+    0 8px 24px rgba(0, 0, 0, 0.10),
+    inset 0 1px 1px rgba(255, 255, 255, 0.12);
 }
 
 /* Highlight emas baris salat berikutnya */

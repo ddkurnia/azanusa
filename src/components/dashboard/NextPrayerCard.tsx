@@ -51,15 +51,16 @@ export function NextPrayerCard({
 
   return (
     <section
-      className="panel-teal-glass rounded-2xl p-4 shadow-lg shadow-black/30"
+      className="panel-teal-glass rounded-3xl p-4"
       /*
-        backdrop-filter di-set inline agar TIDAK dipangkas minifier CSS
-        (Lightning CSS bundel produksi hanya menyimpan versi -webkit-).
-        Inline style menjamin blur 8px bekerja di semua browser.
+        CLEAR GLASSMORPHISM: lapisan hijau tipis 22% ada di class
+        .panel-teal-glass (globals.css). backdrop-filter di-set inline agar
+        TIDAK dipangkas minifier CSS produksi (Lightning CSS) — blur rendah
+        3px agar gambar masjid di belakang kartu tetap jernih.
       */
       style={{
-        backdropFilter: "blur(8px)",
-        WebkitBackdropFilter: "blur(8px)",
+        backdropFilter: "blur(3px)",
+        WebkitBackdropFilter: "blur(3px)",
       }}
     >
       <div className="flex items-center justify-between gap-3">
