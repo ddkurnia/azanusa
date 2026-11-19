@@ -59,6 +59,20 @@ prayerSchedules/{regionCode_date} # cache jadwal (publik baca, tulis server saja
 3. **Firestore** — deploy rules: `firebase deploy --only firestore:rules`
    (login CLI dulu: `firebase login`).
 
+### Status setup (19 Nov 2026 — sudah dipasang via CLI/API)
+
+- ✅ Anonymous Authentication diaktifkan (via identitytoolkit admin API).
+- ✅ Firestore rules ter-deploy ke project `azanusa`.
+- ✅ Service account `azanusa-dispatch@azanusa.iam.gserviceaccount.com` dibuat
+  dengan peran `roles/firebase.admin` + `roles/datastore.user`; kredensialnya
+  di `.env` (`FIREBASE_*`) dan tidak pernah di-commit.
+- ✅ Uji E2E lolos penuh: izin → anonymous auth → token FCM → Firestore →
+  kirim FCM asli → notifikasi diterima perangkat; endpoint dispatch
+  menjawab `ok:true` (lihat `scripts/e2e_push_test.mjs`).
+- ⏳ VAPID key belum diisi (opsional): SDK memakai kunci bawaan dan getToken
+  terbukti berfungsi. Untuk produksi, isi di Console → Cloud Messaging →
+  Web Push certificates lalu set `NEXT_PUBLIC_FIREBASE_VAPID_KEY`.
+
 ## Setup server (cron pengirim)
 
 Server yang menjalankan endpoint dispatch memerlukan env:

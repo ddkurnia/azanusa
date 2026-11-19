@@ -67,3 +67,7 @@ server.log
 /agent-ctx/
 tool-results/
 /scripts/fb-state/
+
+# artefak login CLI firebase (verifier sesi — jangan di-commit)
+/scripts/fb-login-*
+/scripts/fb_login_driver.py
