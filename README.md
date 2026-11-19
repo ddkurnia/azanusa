@@ -36,18 +36,20 @@ jadwal lima salat dengan highlight emas, menu akses cepat, dan navigasi bawah li
 AZANUSA **tidak pernah mengklaim data resmi Kemenag tanpa verifikasi**. Lencana sumber
 selalu tampil di beranda:
 
-1. **SIHAT Kemenag RI (resmi, terverifikasi)** — aktif otomatis bila
-   `KEMENAG_SIHAH_API_TOKEN` dikonfigurasi di server. Panduan: [`docs/KEMENAG-SIHAT.md`](docs/KEMENAG-SIHAT.md).
-2. **Cermin publik (TIDAK resmi, bawaan aktif)** — replikasi data Bimasislam/SIHAT
+1. **Perhitungan astronomis (SUMBER UTAMA sejak 19 Nov 2026)** — hisab lokal kriteria
+   Kemenag: Subuh 20°, Isya 18°, Asar Syafi'i — **momen astronomis murni tanpa ihtiyat**,
+   selaras dengan waktu salat yang ditampilkan Google. Keputusan ini diambil setelah
+   verifikasi pemilik (contoh: Asar Kab. Kepulauan Meranti 19/11/2026 = 15:18, sama
+   persis dengan Google; tabel Kemenag memuat ihtiyat sehingga menampilkan 15:20).
+2. **SIHAT Kemenag RI (resmi, terverifikasi)** — pencadang pertama, aktif bila hisab
+   gagal dan `KEMENAG_SIHAH_API_TOKEN` dikonfigurasi di server. Panduan:
+   [`docs/KEMENAG-SIHAT.md`](docs/KEMENAG-SIHAT.md).
+3. **Cermin publik (TIDAK resmi, pencadang)** — replikasi data Bimasislam/SIHAT
    Kemenag RI oleh pihak ketiga (API myQuran), dengan pencadang API Aladhan metode
-   "Kementerian Agama Republik Indonesia". Angka mengikuti tabel resmi Kemenag;
+   "Kementerian Agama Republik Indonesia". Angka mengikuti tabel resmi Kemenag
+   (memuat ihtiyat, umumnya 1-3 menit lebih lambat dari momen astronomis);
    saluran datanya tetap dilabeli "TIDAK RESMI". Matikan dengan
-   `PRAYER_ENABLE_MIRROR=false` — bila dimatikan, mode auto jatuh ke hisab lokal.
-3. **Perhitungan astronomis (pencadang terakhir)** — hisab lokal kriteria Kemenag: Subuh 20°,
-   Isya 18°, Asar Syafi'i; ihtiyat dikalibrasi terhadap tabel SIHAT pada 20 sampel
-   (5 kota × 4 musim 2026) dengan **deviasi maksimum 4 menit, rata-rata 0,93 menit**
-   (lihat `scripts/calibrate.cjs`). Data ini diberi label jelas sebagai perhitungan,
-   bukan data resmi.
+   `PRAYER_ENABLE_MIRROR=false` — bila dimatikan, pencadang hanya SIHAT resmi.
 
 ## Data Wilayah
 

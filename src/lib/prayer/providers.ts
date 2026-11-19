@@ -1,18 +1,19 @@
 /**
  * Penyedia data jadwal salat AZANUSA — arsitektur modular.
  *
- * Rantai penyedia (prioritas, mode "auto"):
- *  1. kemenag-sihat    : API resmi SIHAT Kemenag (butuh token + registrasi IP —
- *     diajukan lewat https://sihat.kemenag.go.id/pengembang). Aktif otomatis
- *     bila env KEMENAG_SIHAH_API_TOKEN tersedia di server.
- *  2. kemenag-mirror   : cermin publik data Bimasislam/SIHAT Kemenag (API myQuran).
- *     TIDAK RESMI — aktif secara BAWAAN (matikan dengan env
- *     PRAYER_ENABLE_MIRROR=false). Angka mengikuti tabel resmi Kemenag RI.
- *  3. aladhan-kemenag  : API Aladhan dengan metode "Kementerian Agama Republik
- *     Indonesia" (metode 20) memakai koordinat wilayah — pencadang bila cermin
- *     tidak menemukan wilayah/tidak dapat diakses. TIDAK RESMI, ikut switch mirror.
- *  4. astronomical     : perhitungan astronomis lokal (kriteria Kemenag,
- *     dikalibrasi terhadap tabel SIHAT; deviasi umum 0-4 menit). Selalu tersedia.
+ * Rantai penyedia (prioritas, mode "auto", keputusan pemilik proyek 19 Nov 2026):
+ *  1. astronomical     : perhitungan astronomis lokal kriteria Kemenag (Subuh 20°,
+ *     Isya 18°, Asar Syafi'i) — MOMEN ASTRONOMIS MURNI tanpa ihtiyat, selaras
+ *     dengan waktu yang ditampilkan Google. SUMBER UTAMA. Selalu tersedia.
+ *  2. kemenag-sihat    : API resmi SIHAT Kemenag (butuh token + registrasi IP —
+ *     diajukan lewat https://sihat.kemenag.go.id/pengembang). PENCADANG bila
+ *     hisab gagal (mis. kasus lintang ekstrem) dan token tersedia di server.
+ *  3. kemenag-mirror   : cermin publik data Bimasislam/SIHAT Kemenag (API myQuran).
+ *     TIDAK RESMI — hanya pencadang (matikan dengan env PRAYER_ENABLE_MIRROR=false).
+ *     Angka mengikuti tabel resmi Kemenag RI (memuat ihtiyat, 1-3 menit lebih lambat).
+ *  4. aladhan-kemenag  : API Aladhan dengan metode "Kementerian Agama Republik
+ *     Indonesia" (metode 20) memakai koordinat wilayah — pencadang terakhir bila
+ *     cermin tidak menemukan wilayah/tidak dapat diakses. TIDAK RESMI, ikut switch mirror.
  *
  * Semua penyedia mengembalikan instan UTC + metadata sumber yang jujur.
  */
@@ -34,7 +35,7 @@ export const SOURCES: Record<ScheduleSource["id"], ScheduleSource> = {
     label: "Jadwal Kemenag RI (cermin publik)",
     official: false,
     verified: false,
-    note: "Menyalin data jadwal Bimasislam/SIHAT Kemenag RI via API myQuran — angka mengikuti tabel resmi Kemenag, meski saluran datanya bukan layanan resmi.",
+    note: "Menyalin data jadwal Bimasislam/SIHAT Kemenag RI via API myQuran — angka mengikuti tabel resmi Kemenag (memuat ihtiyat, umumnya 1-3 menit lebih lambat dari momen astronomis). Hanya dipakai bila hisab astronomis gagal.",
   },
   "aladhan-kemenag": {
     id: "aladhan-kemenag",
@@ -48,7 +49,7 @@ export const SOURCES: Record<ScheduleSource["id"], ScheduleSource> = {
     label: "Perhitungan astronomis (kriteria Kemenag)",
     official: false,
     verified: false,
-    note: "Hisab astronomis lokal: Subuh 20°, Isya 18°, Asar Syafi'i, dikalibrasi terhadap tabel SIHAT Kemenag (deviasi umum 0-4 menit).",
+    note: "Hisab astronomis lokal momen murni tanpa ihtiyat: Subuh 20°, Isya 18°, Asar Syafi'i — selaras dengan waktu salat yang ditampilkan Google. Sumber utama AZANUSA.",
   },
 };
 
@@ -72,10 +73,10 @@ export function isKemenagSihatConfigured(): boolean {
 }
 
 export function isMirrorEnabled(): boolean {
-  // Bawaan AKTIF (keputusan pemilik proyek, Nov 2026): jadwal mengikuti data
-  // Kemenag via cermin publik; hisab lokal menjadi pencadang terakhir.
-  // Matikan dengan env PRAYER_ENABLE_MIRROR=false agar hanya memakai SIHAT
-  // resmi + hisab astronomis lokal.
+  // Cermin publik TIDAK lagi jadi sumber utama (keputusan pemilik proyek, Nov 2026):
+  // sumber utama adalah hisab astronomis. Env ini hanya mengatur apakah cermin
+  // (myQuran/Aladhan) boleh dipakai sebagai PENCADANG bila hisab gagal.
+  // Matikan dengan env PRAYER_ENABLE_MIRROR=false agar pencadang hanya SIHAT resmi.
   return env("PRAYER_ENABLE_MIRROR") !== "false";
 }
 
@@ -393,31 +394,53 @@ export async function fetchSchedule(
     return Boolean(r.timesUTC && r.source);
   }
 
-  if (choice === "kemenag" || choice === "auto") {
+  // 1) SUMBER UTAMA: hisab astronomis momen murni (keputusan pemilik, Nov 2026 —
+  //    selaras dengan Google). Bila gagal (mis. lintang ekstrem), lanjut ke pencadang.
+  if (choice === "calc" || choice === "auto") {
+    try {
+      const r = providerAstronomical(ctx);
+      attempts.push(r);
+      if (useable(r)) result = r;
+    } catch (e) {
+      attempts.push({ timesUTC: null, source: null, error: `Hisab gagal: ${(e as Error).message}` });
+    }
+    if (result && choice === "calc") return buildSchedule(result, region, dateISO);
+  }
+
+  // 2) Pencadang: SIHAT resmi bila token dikonfigurasi
+  if (!result && (choice === "kemenag" || choice === "auto")) {
     const r = await providerKemenagSihat(ctx);
     attempts.push(r);
     if (useable(r)) result = r;
     else if (choice === "kemenag") throw new Error(r.error ?? "Penyedia resmi tidak tersedia");
   }
+  // 3) Pencadang: cermin publik Kemenag (bila diizinkan env)
   if (!result && (choice === "mirror" || (choice === "auto" && isMirrorEnabled()))) {
     const r = await providerKemenagMirror(ctx);
     attempts.push(r);
     if (useable(r)) result = r;
     else if (choice === "mirror") throw new Error(r.error ?? "Cermin publik tidak tersedia");
   }
+  // 4) Pencadang terakhir: Aladhan metode Kemenag
   if (!result && choice === "auto" && isMirrorEnabled()) {
     const r = await providerAladhanKemenag(ctx);
     attempts.push(r);
     if (useable(r)) result = r;
-  }
-  if (!result && (choice === "calc" || choice === "auto")) {
-    result = providerAstronomical(ctx);
   }
   if (!result || !useable(result)) {
     const detail = attempts.map((a) => a.error).filter(Boolean).join("; ");
     throw new Error(detail || "Tidak ada penyedia jadwal yang tersedia");
   }
 
+  return buildSchedule(result, region, dateISO);
+}
+
+/** Susun objek PrayerSchedule dari hasil penyedia yang terpilih */
+function buildSchedule(
+  result: ProviderResult,
+  region: Region,
+  dateISO: string
+): Omit<PrayerSchedule, "cache"> {
   const times = result.timesUTC!;
   const entries = PRAYER_KEYS.map((key) => ({
     key,

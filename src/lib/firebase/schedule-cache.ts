@@ -31,9 +31,13 @@ export function docId(regionCode: string, date: string): string {
 
 export async function readCache(regionCode: string, date: string): Promise<CachedScheduleDoc | null> {
   const id = docId(regionCode, date);
-  // 1) memori
+  // 1) memori — hanya entri sumber hisab astronomis yang dipercaya
   const mem = MEMORY_CACHE.get(id);
-  if (mem && mem.expiresAt > Date.now()) return mem.data as CachedScheduleDoc;
+  if (mem && mem.expiresAt > Date.now()) {
+    const data = mem.data as CachedScheduleDoc;
+    if (data.sourceId === "astronomical") return data;
+    MEMORY_CACHE.delete(id);
+  }
   // 2) Firestore
   if (!isAdminConfigured()) return null;
   try {
@@ -42,6 +46,11 @@ export async function readCache(regionCode: string, date: string): Promise<Cache
     const snap = await db.collection("prayerSchedules").doc(id).get();
     if (!snap.exists) return null;
     const data = snap.data() as CachedScheduleDoc;
+    // Cache hanya dipercaya untuk sumber hisab astronomis (sumber utama sejak
+    // keputusan pemilik proyek, 19 Nov 2026). Dokumen lama dari mirror/Aladhan/
+    // SIHAT memuat nilai ber-ihtiyat (+1-4 menit) — dianggap tidak valid agar
+    // dihitung ulang dan ditimpa dengan momen astronomis murni.
+    if (data.sourceId !== "astronomical") return null;
     // Cache valid bila sumbernya resmi/terverifikasi; cache perhitungan hanya dipakai 1 hari
     if (data.date !== date) return null;
     const fresh = Date.parse(data.synchronizationTime);

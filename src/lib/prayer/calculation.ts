@@ -7,12 +7,15 @@
  *  - Isya   : matahari -18 derajat di bawah horizon
  *  - Asar   : panjang bayangan = benda + 1x (mazhab Syafi'i)
  *  - Magrib : matahari terbenam (refraksi -0.833 derajat)
- *  - Ihtiyat (kehati-hatian): dikalibrasi mendekati tabel SIHAT Kemenag
- *    (lihat konstanta KEMENAG_OPTIONS)
  *
- * CATATAN KEBERAKSABAN: hasil perhitungan astronomis dapat berbeda 1-3 menit
- * dari tabel SIHAT Kemenag resmi. Saat akses API SIHAT resmi telah
- * dikonfigurasi, aplikasi otomatis memakai data resmi tersebut.
+ * CATATAN IHTIYAT (keputusan pemilik proyek, 19 Nov 2026): aplikasi menampilkan
+ * MOMEN ASTRONOMIS MURNI tanpa tambahan ihtiyat. Alasan: tabel resmi Kemenag
+ * memuat ihtiyat beberapa menit sehingga konsisten 1-3 menit lebih lambat
+ * daripada momen astronomis (contoh terverifikasi: Asar Kab. Kepulauan Meranti
+ * 19/11/2026 — momen astronomis 15:18 sama persis dengan yang ditampilkan
+ * Google, sedangkan tabel Kemenag 15:20). Pengguna mengonfirmasi momen
+ * astronomis itulah yang akurat. Sumber tabel resmi tetap tersedia sebagai
+ * pencadang (lihat src/lib/prayer/providers.ts).
  *
  * Semua hasil berupa instan UTC; penampilan dikonversi di zona waktu wilayah.
  * Implementasi menggunakan aritmetika milidetik inline (tanpa closure Date)
@@ -35,16 +38,16 @@ export interface CalculationOptions {
 }
 
 /**
- * Kriteria hisab Kemenag RI + ihtiyat hasil kalibrasi terhadap tabel jadwal salat
- * yang direplikasi dari SIHAT Kemenag (20 sampel: Blitar, Makassar, Jakarta Selatan,
- * Jayapura, Sorong x 4 musim 2026). Deviasi maksimum 4 menit, rata-rata 0,93 menit.
- * Prioritas tetap: data resmi SIHAT bila akses API telah dikonfigurasi.
+ * Kriteria hisab Kemenag RI — momen astronomis murni TANPA ihtiyat.
+ * Kalibrasi lama (+2-4 menit mendekati tabel SIHAT, scripts/calibrate.cjs)
+ * dihapus per keputusan pemilik proyek, 19 Nov 2026: waktu yang ditampilkan
+ * harus sama dengan momen astronomis sesungguhnya (selaras dengan Google).
  */
 export const KEMENAG_OPTIONS: CalculationOptions = {
   fajrAngle: 20,
   ishaAngle: 18,
   asrFactor: 1,
-  ihtiyat: { fajr: 3, sunrise: -3, dhuhr: 4, asr: 2, magrib: 4, isha: 1 },
+  ihtiyat: { fajr: 0, sunrise: 0, dhuhr: 0, asr: 0, magrib: 0, isha: 0 },
 };
 
 const DEG = Math.PI / 180;
