@@ -317,7 +317,7 @@ export function MosqueView() {
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-sm font-bold text-teal-deep">{m.name}</span>
                 <span className="block text-[11px] text-muted-foreground">
-                  ~{m.distanceKm < 1 ? `${Math.round(m.distanceKm * 1000)} m` : `${m.distanceKm} km`}{" "}
+                  ~{m.distanceKm < 1 ? `${Math.round(m.distanceKm * 1000)} m` : `${m.distanceKm.toFixed(2)} km`}{" "}
                   {origin === "gps" ? "dari Anda" : "dari pusat wilayah"}
                 </span>
               </span>
