@@ -114,7 +114,7 @@ src/
 └── hooks/                # useHashRoute, useNow, useSchedule, useNotifications, useInstallPrompt
 public/
 ├── icons/                # logo AZANUSA + ikon PWA (192/512/maskable/apple)
-├── audio/                # azan.mp3 (CC BY-SA 4.0, lihat AUDIO-CREDITS.md)
+├── audio/                # azan.mp3 (azan Masjid al-Haram Makkah, CC BY 3.0 — AUDIO-CREDITS.md)
 ├── manifest.webmanifest
 ├── sw.js                 # service worker (precache, network-first API, offline)
 └── offline.html

@@ -4,7 +4,7 @@
  * - Runtime: cache-first untuk aset statis; network-first untuk /api/prayer-times
  *   (fallback cache terakhir agar jadwal tetap tampil offline); navigasi → offline.html
  */
-const VERSION = "azanusa-v1.1.0";
+const VERSION = "azanusa-v1.2.0";
 const PRECACHE = [
   "/",
   "/manifest.webmanifest",

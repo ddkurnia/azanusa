@@ -207,8 +207,8 @@ export function SettingsView() {
           Pratinjau {audioUnlocked ? "azan" : "nada pengingat"}
         </button>
         <p className="mt-3 text-[10px] leading-relaxed text-muted-foreground">
-          Azan: &quot;The Adhan — Muslim Call to Prayer — Aaqib Azeez&quot; oleh Atcovi,
-          Wikimedia Commons, CC BY-SA 4.0 (dengan atribusi). Detail di
+          Azan Makkah: &quot;Adhan, Great Mosque of Mecca — Jan 21, 2013&quot; oleh
+          Seyfula Islam, Wikimedia Commons, CC BY 3.0 (dengan atribusi). Detail di
           public/audio/AUDIO-CREDITS.md.
         </p>
       </section>

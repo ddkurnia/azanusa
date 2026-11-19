@@ -23,8 +23,8 @@ SOFTWARE.
 --------------------------------------------------------------------------
 
 Catatan aset pihak ketiga:
-- public/audio/azan.mp3 dilisensikan terpisah CC BY-SA 4.0 oleh pemiliknya
-  (atribusi: public/audio/AUDIO-CREDITS.md) dan tidak termasuk dalam lisensi
-  MIT di atas.
+- public/audio/azan.mp3 dilisensikan terpisah CC BY 3.0 oleh pemiliknya
+  (rekaman azan Masjid al-Haram Makkah; atribusi: public/audio/AUDIO-CREDITS.md)
+  dan tidak termasuk dalam lisensi MIT di atas.
 - Data wilayah bersumber dari publikasi resmi Kemendagri, Wikidata (CC0),
   dan OpenStreetMap contributors (ODbL).
