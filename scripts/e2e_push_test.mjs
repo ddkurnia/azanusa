@@ -3,7 +3,7 @@
  *  1. Chrome headless + Browser.grantPermissions(notifications)
  *  2. Set lokasi via localStorage → splash → Pengaturan
  *  3. Patch reg.showNotification (rekaman penerimaan di halaman)
- *  4. Klik toggle "Push notifikasi (Firebase)" → izin + anonymous auth + token FCM + Firestore
+ *  4. Klik toggle "Push notifikasi" → izin + anonymous auth + token FCM + Firestore
  *  5. Verifikasi dokumen users/{uid} via Admin SDK + kirim push FCM ASLI
  *  6. Verifikasi __notifLog (halaman menerima) + endpoint dispatch cron
  *  7. Screenshot + laporan
@@ -119,7 +119,7 @@ try {
   ));
 
   // ---------- klik toggle push ----------
-  const toggled = await evalJs(`(() => { const b = document.querySelector('button[aria-label="Aktifkan push notifikasi Firebase"]'); if (b) { b.click(); return true; } return false; })()`);
+  const toggled = await evalJs(`(() => { const b = document.querySelector('button[aria-label="Aktifkan push notifikasi"]'); if (b) { b.click(); return true; } return false; })()`);
   log("klik toggle push:", toggled);
 
   // ---------- poll status ----------

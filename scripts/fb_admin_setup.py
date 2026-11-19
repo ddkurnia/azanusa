@@ -91,7 +91,23 @@ def main() -> None:
         if st2 not in (200, 201):
             sys.exit(2)
 
-    # ---------- 3. Service account ----------
+    # ---------- 3. Database Firestore (default) ----------
+    st, cur = call("GET", f"https://firestore.googleapis.com/v1/projects/{PROJECT}/databases/%28default%29", token)
+    if st == 200:
+        step_ok.append("Firestore: database (default) sudah ada")
+    elif st == 404:
+        st2, res2 = call("POST", f"https://firestore.googleapis.com/v1/projects/{PROJECT}/databases?databaseId=%28default%29",
+                         token, body={"type": "FIRESTORE_NATIVE", "locationId": "asia-southeast2"})
+        if st2 in (200, 201, 409):
+            step_ok.append("Firestore: database (default) dibuat (asia-southeast2/Jakarta)")
+        else:
+            print("GAGAL buat Firestore:", st2, str(res2)[:300])
+            sys.exit(7)
+    else:
+        print("GAGAL cek Firestore:", st, str(cur)[:300])
+        sys.exit(7)
+
+    # ---------- 4. Service account ----------
     sa_name = f"projects/{PROJECT}/serviceAccounts/{SA_ID}@{PROJECT}.iam.gserviceaccount.com"
     sa_email = f"{SA_ID}@{PROJECT}.iam.gserviceaccount.com"
     st, res = call("POST", f"https://iam.googleapis.com/v1/projects/{PROJECT}/serviceAccounts", token,
