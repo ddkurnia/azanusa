@@ -71,3 +71,6 @@ tool-results/
 # artefak login CLI firebase (verifier sesi — jangan di-commit)
 /scripts/fb-login-*
 /scripts/fb_login_driver.py
+
+# workflow cron disimpan lokal (push butuh token ber-scope workflow)
+/.github/workflows/
