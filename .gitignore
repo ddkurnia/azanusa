@@ -65,3 +65,4 @@ server.log
 /Caddyfile
 /.z-ai-config
 /agent-ctx/
+tool-results/
