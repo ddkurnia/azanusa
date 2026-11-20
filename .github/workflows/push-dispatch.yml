@@ -1,0 +1,53 @@
+# Cron pengirim push pengingat salat AZANUSA — SIAP TEMPEL.
+#
+# Cara mengaktifkan (1 langkah, tanpa token khusus):
+#   1. Buka https://github.com/ddkurnia/azanusa di browser (login pemilik repo).
+#   2. Add file → Create file → beri nama path persis:
+#        .github/workflows/push-dispatch.yml
+#   3. Salin seluruh isi file ini ke editor, lalu Commit.
+#   4. Aktifkan Actions bila diminta (tab Actions → "I understand my workflows,
+#      go ahead and enable them").
+#
+# Repo secret yang dibutuhkan SUDAH TERPASANG via API (19 Nov 2026):
+#   - PROD_URL     = https://azanusa.vercel.app
+#   - CRON_SECRET  = secret endpoint dispatcher
+# Setelah file ini masuk, pengirim berjalan tiap 3 menit otomatis sehingga push
+# azan "masuk waktu salat" terkirim ke semua perangkat (termasuk aplikasi yang
+# sedang tertutup) tanpa bergantung pada beacon antar perangkat.
+#
+# Catatan: penjadwal GitHub Actions bersifat best-effort (bisa telat beberapa
+# menit). Beacon AZANUSA (tick tiap 65 detik dari aplikasi yang terbuka) tetap
+# menjadi pelengkap presisi.
+
+name: Push pengingat salat
+
+on:
+  schedule:
+    - cron: "*/3 * * * *"
+  workflow_dispatch: {}
+
+permissions: {}
+
+concurrency:
+  group: push-dispatch
+  cancel-in-progress: false
+
+jobs:
+  dispatch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Panggil endpoint dispatcher (dengan secret)
+        continue-on-error: true
+        run: |
+          curl -sS --max-time 45 \
+            "${PROD_URL}/api/notifications/dispatch?secret=${CRON_SECRET}"
+        env:
+          PROD_URL: ${{ secrets.PROD_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+
+      - name: Cadangan — tick mandiri (tanpa secret)
+        run: |
+          curl -sS --max-time 45 "${PROD_URL}/api/notifications/tick"
+        env:
+          PROD_URL: ${{ secrets.PROD_URL }}
