@@ -69,16 +69,16 @@ export function PushForeground() {
   // Tick mandiri: setiap aplikasi yang terbuka memicu dispatcher server
   // (dibatasi server 1×/menit) sehingga pengingat terkirim ke semua perangkat
   // — termasuk aplikasi yang sedang tertutup — tanpa cron eksternal.
-  // Interval 4 menit lebih pendek dari jendela "tepat waktu" (5 menit) dan
-  // jendela pengingat "x menit sebelum" (default 10) agar tidak ada jendela
-  // yang terlewat di antara dua tick; tick instan saat pengguna kembali ke
-  // aplikasi atau jaringan pulih menutup celah throttling latar belakang.
+  // Interval 65 detik (> throttle server 60 dtk) memastikan push "tepat waktu"
+  // tiba dalam ≤ ~1 menit sejak waktu salat bila ada satu saja perangkat yang
+  // aplikasinya hidup; tick instan saat pengguna kembali ke aplikasi/jaringan
+  // pulih menutup celah saat tab sempat dibekukan peramban.
   useEffect(() => {
     const tick = () => {
       fetch("/api/notifications/tick", { keepalive: true }).catch(() => {});
     };
     const t0 = setTimeout(tick, 4000);
-    const interval = setInterval(tick, 4 * 60_000);
+    const interval = setInterval(tick, 65_000);
     const onVisible = () => {
       if (document.visibilityState === "visible") tick();
     };

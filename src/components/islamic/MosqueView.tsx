@@ -172,7 +172,9 @@ export function MosqueView() {
     const key = `${location.code}`;
     if (autoRef.current === key) return;
     autoRef.current = key;
-    search(location.lat, location.lng, "wilayah");
+    // Ditunda ke microtask: pencarian memperbarui state sinkron di awalnya;
+    // langsung dipanggil dalam efek memicu render beruntun (react-hooks/set-state-in-effect).
+    queueMicrotask(() => search(location.lat, location.lng, "wilayah"));
   }, [location, search]);
 
   // Realtime GPS: cari di sekitar posisi pengguna sebenarnya

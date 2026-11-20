@@ -25,7 +25,17 @@ export function NotificationTicker() {
     lastTick.current = t;
     pruneFired(schedule.date);
     void checkAndNotify(schedule, tomorrow, notifications, now);
-  }, [now, permission, schedule, tomorrow]);
+  }, [now, permission, schedule, tomorrow, notifications]);
+
+  // Tick instan saat pengguna kembali ke aplikasi: pengingat yang jatuh tempo
+  // selama tab dibekukan peramban langsung diproses tanpa menunggu debounce 15 dtk.
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState === "visible") lastTick.current = 0;
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, []);
 
   return null;
 }

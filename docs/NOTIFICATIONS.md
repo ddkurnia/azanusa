@@ -134,6 +134,35 @@ Kemudian pasang cron eksternal (pilih salah satu):
 Dispatcher mengirim dalam jendela 5 menit sejak waktu salat (dedup per hari),
 jadi cron 1–5 menit menghasilkan pengingat tepat waktu saat aplikasi ditutup.
 
+## Perbaikan azan realtime (20 Nov 2026)
+
+Gejala: pengingat "x menit lagi" muncul walau aplikasi ditutup, tetapi azan
+"masuk waktu salat" hanya muncul setelah aplikasi dibuka.
+
+Akar masalah: azan tepat waktu bergantung pada dispatcher FCM yang hanya
+berjalan saat ada beacon dari aplikasi yang terbuka (interval lama 4 menit)
+atau cron eksternal (belum aktif). Perbaikan yang diterapkan:
+
+1. **Beacon dipercepat 65 detik** (`PushForeground`) — begitu ada satu perangkat
+   yang aplikasinya hidup, semua perangkat menerima push dalam ≤ ~1 menit.
+2. **Ketuk notifikasi azan → azan penuh diputar otomatis**: push "Masuk waktu
+   salat X" membawa `url: /?azan=<key>&t=<ms>`; `notificationclick` di `sw.js`
+   membuka/fokus aplikasi; komponen `AzanDeepLink` memutar azan sesuai mode,
+   menandai pengingat sudah diputar (tidak dobel dengan ticker), lalu
+   membersihkan parameter URL. Klik notifikasi adalah aktivitas pengguna, jadi
+   autoplay diizinkan.
+3. **Tick instan saat kembali ke aplikasi** (ticker + beacon) — pengingat yang
+   jatuh tempo selama tab dibekukan langsung diproses.
+4. **File cron GitHub Actions siap tempel**: `docs/push-dispatch.yml`
+   (salin ke `.github/workflows/push-dispatch.yml` via web GitHub; repo secrets
+   `PROD_URL` + `CRON_SECRET` sudah terpasang). Tanpa cron ini, push azan saat
+   SEMUA aplikasi tertutup tetap bergantung pada beacon antar perangkat.
+5. Keterangan lengkap ditambahkan di Pengaturan → Pengingat Salat.
+
+Batasan platform (tetap berlaku): web tidak dapat memutar audio di latar tanpa
+sentuhan pengguna — bunyi di latar adalah nada notifikasi perangkat; azan
+Makkah penuh diputar saat notifikasi diketuk atau aplikasi dibuka.
+
 ## Uji cepat
 
 ```

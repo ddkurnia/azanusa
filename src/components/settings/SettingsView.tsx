@@ -234,11 +234,24 @@ export function SettingsView() {
         <p className="mt-3 flex items-start gap-2 rounded-xl bg-muted p-3 text-[11px] leading-relaxed text-muted-foreground">
           <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-gold" />
           <span>
-            <strong>Cara kerja pengingat:</strong> saat aplikasi terbuka, AZANUSA menampilkan
-            pengingat langsung dari perangkat (dengan azan Makkah bila dipilih). Dengan
-            <strong>push</strong> aktif, pengingat tetap terkirim saat aplikasi ditutup —
-            selama server pengirim AZANUSA berjalan dan peramban mendukung web push
-            (Android Chrome, atau PWA terpasang di iOS 16.4+).
+            <strong>Cara kerja azan:</strong> saat aplikasi terbuka, azan Makkah diputar
+            otomatis langsung dari perangkat sesuai mode per salat. Saat aplikasi
+            ditutup, push cloud AZANUSA menampilkan notifikasi sistem tepat waktu
+            (berbunyi nada notifikasi perangkat) — <strong>ketuk notifikasinya maka
+            AZANUSA terbuka dan memutar azan penuh secara otomatis</strong>. Peramban
+            memang tidak mengizinkan web memutar audio di latar tanpa sentuhan;
+            agar bunyi azan terdengar sebelum dibuka, atur nada notifikasi ponsel
+            ke audio azan dan matikan optimasi baterai untuk peramban Anda.
+          </span>
+        </p>
+        <p className="mt-2 flex items-start gap-2 rounded-xl bg-muted p-3 text-[11px] leading-relaxed text-muted-foreground">
+          <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-gold" />
+          <span>
+            <strong>Pengirim push:</strong> berjalan otomatis lewat beacon antar
+            perangkat AZANUSA (setiap aplikasi yang terbuka memicu pengiriman ke
+            semua perangkat). Supaya azan tetap terkirim saat <em>semua</em> aplikasi
+            tertutup, aktifkan cron gratis GitHub Actions — panduan satu langkah di
+            docs/push-dispatch.yml pada repo, atau minta bantuan admin AZANUSA.
           </span>
         </p>
       </section>

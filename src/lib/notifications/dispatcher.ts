@@ -128,9 +128,13 @@ export async function dispatchPrayerPushes(): Promise<DispatchSummary> {
       if (now.getTime() >= t && now.getTime() < t + WINDOW_MS && !lastNotified[mKey]) {
         const r = await sendPush(messaging, token, {
           title: `Masuk waktu salat ${PRAYER_NAMES[key]}`,
-          body: `${schedule.display[key]} ${tzLabel} — ${where}`,
+          body: `${schedule.display[key]} ${tzLabel} — ${where}` +
+            (silent ? "" : " — ketuk untuk memutar azan"),
           tag: `azanusa-${mKey}`,
           silent,
+          // Tautan azan: mengetuk notifikasi membuka aplikasi dan memutar azan
+          // penuh otomatis (AzanDeepLink). t = instan waktu salat (ms UTC).
+          url: `/?azan=${key}&t=${t}`,
         });
         applyResult(summary, d.id, mKey, key, region.code, r, newMarks);
         if (r === "dead") break;
@@ -186,7 +190,7 @@ type SendResult = "sent" | "dead" | "error";
 async function sendPush(
   messaging: import("firebase-admin/messaging").Messaging,
   token: string,
-  msg: { title: string; body: string; tag: string; silent: boolean }
+  msg: { title: string; body: string; tag: string; silent: boolean; url?: string }
 ): Promise<SendResult> {
   try {
     await messaging.send({
@@ -196,6 +200,7 @@ async function sendPush(
         body: msg.body,
         tag: msg.tag,
         silent: msg.silent ? "1" : "0",
+        url: msg.url ?? "/",
       },
       webpush: {
         headers: { Urgency: "high" },

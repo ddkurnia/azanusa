@@ -7,7 +7,7 @@
  *   aplikasi ditutup). importScripts dibungkus try/catch agar kegagalan jaringan
  *   saat pemasangan tidak merusak caching offline.
  */
-const VERSION = "azanusa-v1.3.0";
+const VERSION = "azanusa-v1.4.0";
 const PRECACHE = [
   "/",
   "/manifest.webmanifest",
@@ -56,7 +56,9 @@ try {
       dir: "ltr",
       vibrate: d.silent === "1" ? undefined : [200, 100, 200],
       silent: d.silent === "1",
-      data: { url: "/" },
+      // url bawaan payload (utama: /?azan=<key>&t=<ms>) dipakai notificationclick
+      // agar mengetuk notifikasi azan langsung membuka aplikasi dan memutar azan.
+      data: { url: d.url || "/" },
     });
   });
 } catch (e) {
@@ -142,11 +144,23 @@ self.addEventListener("fetch", (event) => {
 
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
+  const data = event.notification.data || {};
+  let target = "/";
+  try {
+    target = typeof data.url === "string" && data.url ? data.url : "/";
+  } catch {
+    // data tidak standar — pakai default
+  }
   event.waitUntil(
     self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients) => {
       const existing = clients.find((c) => c.url.includes(self.location.origin));
-      if (existing) return existing.focus();
-      return self.clients.openWindow("/");
+      if (existing) {
+        existing.focus();
+        // Aplikasi sudah terbuka: teruskan tautan azan agar diputar tanpa muat ulang
+        if (target.includes("azan=")) existing.postMessage({ type: "play-azan", url: target });
+        return;
+      }
+      return self.clients.openWindow(target);
     })
   );
 });
