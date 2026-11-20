@@ -15,6 +15,7 @@ import {
   enablePushNotifications,
   disablePushNotifications,
   isPushConfigured,
+  sendTestPush,
 } from "@/lib/notifications/push";
 import { PRAYER_KEYS, PRAYER_NAMES } from "@/types";
 import type { NotifyMode } from "@/types";
@@ -100,6 +101,19 @@ export function SettingsView() {
     }
   }
 
+  /** Uji jalur push cloud PENUH (server → FCM → service worker → notifikasi). */
+  async function handleTestPush() {
+    setPushBusy(true);
+    setPushMsg(null);
+    const res = await sendTestPush();
+    setPushMsg(
+      res.ok
+        ? { tone: "ok", text: res.detail }
+        : { tone: "err", text: res.detail || "Gagal mengirim push uji." }
+    );
+    setPushBusy(false);
+  }
+
   return (
     <div className="space-y-4">
       {/* Notifikasi */}
@@ -173,12 +187,23 @@ export function SettingsView() {
             </p>
           )}
           {permission === "granted" && (
-            <button
-              onClick={handleTestNotification}
-              className="mt-3 rounded-lg border border-primary/40 px-3.5 py-2 text-xs font-bold text-primary"
-            >
-              Kirim notifikasi uji
-            </button>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <button
+                onClick={handleTestNotification}
+                className="rounded-lg border border-primary/40 px-3.5 py-2 text-xs font-bold text-primary"
+              >
+                Kirim notifikasi uji
+              </button>
+              {pushEnabled && pushConfigured && (
+                <button
+                  onClick={handleTestPush}
+                  disabled={pushBusy}
+                  className="rounded-lg border border-primary/40 px-3.5 py-2 text-xs font-bold text-primary disabled:opacity-60"
+                >
+                  {pushBusy ? "Mengirim…" : "Kirim push uji (cloud)"}
+                </button>
+              )}
+            </div>
           )}
         </div>
 
@@ -249,9 +274,10 @@ export function SettingsView() {
           <span>
             <strong>Pengirim push:</strong> berjalan otomatis lewat beacon antar
             perangkat AZANUSA (setiap aplikasi yang terbuka memicu pengiriman ke
-            semua perangkat). Supaya azan tetap terkirim saat <em>semua</em> aplikasi
-            tertutup, aktifkan cron gratis GitHub Actions — panduan satu langkah di
-            docs/push-dispatch.yml pada repo, atau minta bantuan admin AZANUSA.
+            semua perangkat). Uji jalurnya dengan tombol <strong>Kirim push uji
+            (cloud)</strong> di atas. Supaya azan tetap terkirim saat <em>semua</em>
+            aplikasi tertutup, cron pengirim wajib aktif — satu langkah di
+            docs/push-dispatch.yml pada repo GitHub (butuh akses pemilik repo).
           </span>
         </p>
       </section>

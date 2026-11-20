@@ -157,7 +157,18 @@ atau cron eksternal (belum aktif). Perbaikan yang diterapkan:
    (salin ke `.github/workflows/push-dispatch.yml` via web GitHub; repo secrets
    `PROD_URL` + `CRON_SECRET` sudah terpasang). Tanpa cron ini, push azan saat
    SEMUA aplikasi tertutup tetap bergantung pada beacon antar perangkat.
-5. Keterangan lengkap ditambahkan di Pengaturan → Pengingat Salat.
+   **Status 20 Nov 2026: file belum bisa di-push otomatis** — GitHub menolak
+   PAT ber-scope `repo` untuk path `.github/workflows/*` (butuh scope
+   `workflow`); wajib ditambahkan pemilik repo via web GitHub.
+5. **Refresh token FCM otomatis** saat aplikasi dibuka (`refreshPushToken`) —
+   token web push dapat mati setelah service worker diperbarui (deploy baru)
+   sehingga push berhenti diam-diam; kini diperbarui & disimpan ulang otomatis.
+6. **Tombol "Kirim push uji (cloud)"** di Pengaturan → endpoint
+   `POST /api/notifications/test` mengirim satu FCM ke perangkat pemanggil
+   (rate limit 2 menit, isi pesan tetap) untuk memverifikasi jalur penuh.
+7. **Token mati dinonaktifkan otomatis** oleh dispatcher (`pushEnabled: false`
+   + `pushDisabledReason`) — pengguna menyalakan ulang push di Pengaturan.
+8. Keterangan lengkap ditambahkan di Pengaturan → Pengingat Salat.
 
 Batasan platform (tetap berlaku): web tidak dapat memutar audio di latar tanpa
 sentuhan pengguna — bunyi di latar adalah nada notifikasi perangkat; azan

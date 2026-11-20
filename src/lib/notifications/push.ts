@@ -18,6 +18,7 @@
 import { deleteDoc, doc, getDoc, serverTimestamp, setDoc } from "firebase/firestore";
 import { deleteToken, getToken } from "firebase/messaging";
 import {
+  ensureAnonymousUser,
   getFirebaseAuth,
   getFirebaseDb,
   getFirebaseMessaging,
@@ -161,6 +162,66 @@ export async function syncPushProfile(
     return true;
   } catch {
     return false;
+  }
+}
+
+/**
+ * Segarkan token FCM saat aplikasi dibuka dan simpan bila berubah.
+ *
+ * PENTING: token web push dapat menjadi tidak valid setelah service worker
+ * diperbarui (deploy baru) atau subscription dirotasi peramban — tanpa
+ * pembaruan ini push cloud berhenti diam-diam padahal sakelar masih "on".
+ * getToken idempoten: mengembalikan token lama bila masih valid.
+ */
+export async function refreshPushToken(): Promise<boolean> {
+  try {
+    if (!isPushConfigured() || !isPushSupported()) return false;
+    if (!("Notification" in window) || Notification.permission !== "granted") return false;
+    const auth = getFirebaseAuth();
+    if (!auth?.currentUser) return false; // push belum pernah diaktifkan di perangkat ini
+    const messaging = await getFirebaseMessaging();
+    if (!messaging) return false;
+    const reg = await navigator.serviceWorker.ready;
+    const vapid = process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY || undefined;
+    const token = await getToken(messaging, {
+      vapidKey: vapid,
+      serviceWorkerRegistration: reg,
+    });
+    if (!token) return false;
+    const db = getFirebaseDb();
+    if (!db) return false;
+    const ref = doc(db, "users", auth.currentUser.uid);
+    const snap = await getDoc(ref);
+    if (!snap.exists() || snap.data()?.pushEnabled !== true) return false;
+    if (snap.data()?.pushToken === token) return true; // masih valid — tidak perlu tulis
+    await setDoc(ref, { pushToken: token, updatedAt: serverTimestamp() }, { merge: true });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Kirim push uji via server ke perangkat ini — memverifikasi jalur FCM penuh
+ * (token valid → FCM → service worker → notifikasi) tanpa menunggu waktu salat.
+ */
+export async function sendTestPush(): Promise<{ ok: boolean; detail: string }> {
+  try {
+    const uid = await ensureAnonymousUser();
+    const res = await fetch("/api/notifications/test", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ uid }),
+    });
+    const j = (await res.json().catch(() => null)) as {
+      ok?: boolean;
+      detail?: string;
+      error?: string;
+    } | null;
+    if (!j) return { ok: false, detail: `Server menjawab HTTP ${res.status}` };
+    return { ok: Boolean(j.ok), detail: j.detail ?? j.error ?? "" };
+  } catch (e) {
+    return { ok: false, detail: (e as Error).message ?? "Gagal menghubungi server" };
   }
 }
 

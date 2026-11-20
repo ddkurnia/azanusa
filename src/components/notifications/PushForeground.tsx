@@ -10,7 +10,7 @@
 import { useEffect, useRef } from "react";
 import { onMessage } from "firebase/messaging";
 import { getFirebaseMessaging } from "@/lib/firebase/client";
-import { syncPushProfile, isPushConfigured } from "@/lib/notifications/push";
+import { syncPushProfile, refreshPushToken, isPushConfigured } from "@/lib/notifications/push";
 import { useAppStore } from "@/lib/store";
 
 export function PushForeground() {
@@ -65,6 +65,17 @@ export function PushForeground() {
     }, 1000);
     return () => clearTimeout(t);
   }, [pushEnabled, location, notifications]);
+
+  // Segarkan token FCM saat aplikasi dibuka: token lama bisa mati setelah
+  // service worker diperbarui (deploy baru) atau subscription dirotasi —
+  // tanpa ini push cloud berhenti diam-diam walau sakelar masih "on".
+  useEffect(() => {
+    if (!pushEnabled) return;
+    const t = setTimeout(() => {
+      void refreshPushToken();
+    }, 8000);
+    return () => clearTimeout(t);
+  }, [pushEnabled]);
 
   // Tick mandiri: setiap aplikasi yang terbuka memicu dispatcher server
   // (dibatasi server 1×/menit) sehingga pengingat terkirim ke semua perangkat

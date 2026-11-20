@@ -119,7 +119,10 @@ export async function dispatchPrayerPushes(): Promise<DispatchSummary> {
             silent,
           });
           applyResult(summary, d.id, bKey, key, region.code, r, newMarks);
-          if (r === "dead") break;
+          if (r === "dead") {
+            await disableDeadDevice(d.ref);
+            break;
+          }
         }
       }
 
@@ -137,7 +140,10 @@ export async function dispatchPrayerPushes(): Promise<DispatchSummary> {
           url: `/?azan=${key}&t=${t}`,
         });
         applyResult(summary, d.id, mKey, key, region.code, r, newMarks);
-        if (r === "dead") break;
+        if (r === "dead") {
+          await disableDeadDevice(d.ref);
+          break;
+        }
       }
     }
 
@@ -183,6 +189,24 @@ function applyResult(
 
 function hasStaleMarks(lastNotified: Record<string, string>, today: string): boolean {
   return Object.keys(lastNotified).some((k) => !k.startsWith(today));
+}
+
+/**
+ * Token mati (perangkat menghapus data situs / subscription dirotasi):
+ * nonaktifkan agar dispatcher tidak mengulang kirim yang selalu gagal.
+ * Pengguna cukup menyalakan ulang Push notifikasi di Pengaturan.
+ */
+async function disableDeadDevice(ref: import("firebase-admin/firestore").DocumentReference) {
+  try {
+    await ref.update({
+      pushEnabled: false,
+      pushDisabledReason:
+        "Token FCM tidak valid — buka aplikasi dan nyalakan ulang Push notifikasi.",
+      updatedAt: FieldValue.serverTimestamp(),
+    });
+  } catch {
+    // doc mungkin sudah terhapus — abaikan
+  }
 }
 
 type SendResult = "sent" | "dead" | "error";
